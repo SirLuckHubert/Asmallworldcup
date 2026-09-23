@@ -1,0 +1,1829 @@
+[
+{
+"id": "INT_messi",
+"name": "Messi",
+"rating": 150,
+"pos": "RW",
+"team": "INT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "SIG_BRA_neymar",
+"name": "Neymar Jr",
+"rating": 150,
+"pos": "LW",
+"team": "BRA",
+"kind": "sig",
+"gift": false
+},
+{
+"id": "STAR_neto",
+"name": "Pedro Neto",
+"rating": 150,
+"pos": "RW",
+"team": "CHE",
+"kind": "star",
+"gift": true
+},
+{
+"id": "STAR_pele",
+"name": "Pele",
+"rating": 150,
+"pos": "ST",
+"team": "SAN",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_r9",
+"name": "R9 Ronaldo",
+"rating": 150,
+"pos": "ST",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_maradona",
+"name": "Maradona",
+"rating": 149,
+"pos": "CAM",
+"team": "NAP",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_ronaldinho",
+"name": "Ronaldinho",
+"rating": 149,
+"pos": "LW",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_zidane",
+"name": "Zidane",
+"rating": 149,
+"pos": "CAM",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_cruyff",
+"name": "Cruyff",
+"rating": 148,
+"pos": "CAM",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_mbappe",
+"name": "Mbappe",
+"rating": 148,
+"pos": "ST",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_neymar",
+"name": "Neymar",
+"rating": 148,
+"pos": "LW",
+"team": "SAN",
+"kind": "star",
+"gift": false
+},
+{
+"id": "ALN_ronaldo",
+"name": "Ronaldo",
+"rating": 148,
+"pos": "ST",
+"team": "ALN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "STAR_hazard",
+"name": "Eden Hazard",
+"rating": 147,
+"pos": "LW",
+"team": "CHE",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_gullit",
+"name": "Gullit",
+"rating": 147,
+"pos": "CM",
+"team": "MIL",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_iniesta",
+"name": "Iniesta",
+"rating": 147,
+"pos": "CM",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "WC_FRA_mbappe",
+"name": "Mbappe",
+"rating": 147,
+"pos": "ST",
+"team": "FRA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "STAR_henry",
+"name": "Henry",
+"rating": 146,
+"pos": "ST",
+"team": "ARS",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_kaka",
+"name": "Kaka",
+"rating": 146,
+"pos": "CAM",
+"team": "MIL",
+"kind": "star",
+"gift": false
+},
+{
+"id": "BAR_yamal",
+"name": "Lamine Yamal",
+"rating": 146,
+"pos": "RW",
+"team": "BAR",
+"kind": "club",
+"gift": false
+},
+{
+"id": "STAR_xavi",
+"name": "Xavi",
+"rating": 146,
+"pos": "CM",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_beckenbauer",
+"name": "Beckenbauer",
+"rating": 145,
+"pos": "CB",
+"team": "BAY",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_eusebio",
+"name": "Eusebio",
+"rating": 145,
+"pos": "ST",
+"team": "BEN",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_maldini",
+"name": "Maldini",
+"rating": 145,
+"pos": "CB",
+"team": "MIL",
+"kind": "star",
+"gift": false
+},
+{
+"id": "LIV_salah",
+"name": "Salah",
+"rating": 145,
+"pos": "RW",
+"team": "LIV",
+"kind": "club",
+"gift": false
+},
+{
+"id": "STAR_vanbasten",
+"name": "Van Basten",
+"rating": 145,
+"pos": "ST",
+"team": "MIL",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_ramos",
+"name": "Sergio Ramos",
+"rating": 144,
+"pos": "CB",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_vandijk",
+"name": "Van Dijk",
+"rating": 144,
+"pos": "CB",
+"team": "LIV",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_cafu",
+"name": "Cafu",
+"rating": 143,
+"pos": "RB",
+"team": "MIL",
+"kind": "star",
+"gift": false
+},
+{
+"id": "WC_ARG_messi",
+"name": "Messi",
+"rating": 143,
+"pos": "RW",
+"team": "ARG",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "STAR_rcarlos",
+"name": "Roberto Carlos",
+"rating": 143,
+"pos": "LB",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_yashin",
+"name": "Yashin",
+"rating": 143,
+"pos": "GK",
+"team": "DYN",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_buffon",
+"name": "Buffon",
+"rating": 142,
+"pos": "GK",
+"team": "JUV",
+"kind": "star",
+"gift": false
+},
+{
+"id": "WC_POL_lewandowski",
+"name": "Lewandowski",
+"rating": 142,
+"pos": "ST",
+"team": "POL",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "STAR_modric",
+"name": "Modric",
+"rating": 142,
+"pos": "CM",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_neuer",
+"name": "Neuer",
+"rating": 142,
+"pos": "GK",
+"team": "BAY",
+"kind": "star",
+"gift": false
+},
+{
+"id": "WC_NET_vandijk",
+"name": "Van Dijk",
+"rating": 142,
+"pos": "CB",
+"team": "NET",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WC_POR_ronaldo",
+"name": "Cristiano Ronaldo",
+"rating": 141,
+"pos": "ST",
+"team": "POR",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "STAR_debruyne",
+"name": "De Bruyne",
+"rating": 141,
+"pos": "CAM",
+"team": "MCI",
+"kind": "star",
+"gift": false
+},
+{
+"id": "WC_CRO_modric",
+"name": "Modric",
+"rating": 141,
+"pos": "CM",
+"team": "CRO",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "STAR_salah",
+"name": "Salah",
+"rating": 141,
+"pos": "RW",
+"team": "LIV",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_vinicius",
+"name": "Vinicius Jr",
+"rating": 141,
+"pos": "LW",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_bellingham",
+"name": "Bellingham",
+"rating": 140,
+"pos": "CM",
+"team": "RMA",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_haaland",
+"name": "Haaland",
+"rating": 140,
+"pos": "ST",
+"team": "MCI",
+"kind": "star",
+"gift": false
+},
+{
+"id": "INT_suarez",
+"name": "Suarez",
+"rating": 140,
+"pos": "ST",
+"team": "INT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_SPA_yamal",
+"name": "Lamine Yamal",
+"rating": 139,
+"pos": "RW",
+"team": "SPA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "STAR_rodri",
+"name": "Rodri",
+"rating": 139,
+"pos": "CDM",
+"team": "MCI",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_saka",
+"name": "Saka",
+"rating": 139,
+"pos": "RW",
+"team": "ARS",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_musiala",
+"name": "Musiala",
+"rating": 138,
+"pos": "CAM",
+"team": "BAY",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_pedri",
+"name": "Pedri",
+"rating": 138,
+"pos": "CM",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_wirtz",
+"name": "Wirtz",
+"rating": 137,
+"pos": "CAM",
+"team": "LIV",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_yamal",
+"name": "Yamal",
+"rating": 137,
+"pos": "RW",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "NO10_bellingham",
+"name": "Jude Bellingham",
+"rating": 136,
+"pos": "CM",
+"team": "ENG",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "STAR_kane",
+"name": "Kane",
+"rating": 136,
+"pos": "ST",
+"team": "BAY",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_suarez",
+"name": "Suarez",
+"rating": 136,
+"pos": "ST",
+"team": "BAR",
+"kind": "star",
+"gift": false
+},
+{
+"id": "STAR_pirlo",
+"name": "Pirlo",
+"rating": 135,
+"pos": "CM",
+"team": "MIL",
+"kind": "star",
+"gift": false
+},
+{
+"id": "NO10_wirtz",
+"name": "Florian Wirtz",
+"rating": 134,
+"pos": "CAM",
+"team": "GER",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "NO10_bruno",
+"name": "Bruno Fernandes",
+"rating": 131,
+"pos": "CAM",
+"team": "POR",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "MCI_haaland",
+"name": "Haaland",
+"rating": 129,
+"pos": "ST",
+"team": "MCI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_ENG_bellingham",
+"name": "Bellingham",
+"rating": 127,
+"pos": "CAM",
+"team": "ENG",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "SUN_bellingham",
+"name": "Bellingham",
+"rating": 127,
+"pos": "CM",
+"team": "SUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "MCI_rodri",
+"name": "Rodri",
+"rating": 127,
+"pos": "CDM",
+"team": "MCI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_BRA_vinicius",
+"name": "Vinicius Jr",
+"rating": 127,
+"pos": "LW",
+"team": "BRA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "CHE_palmer",
+"name": "Palmer",
+"rating": 125,
+"pos": "CAM",
+"team": "CHE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ARS_saka",
+"name": "Saka",
+"rating": 125,
+"pos": "RW",
+"team": "ARS",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_MOR_hakimi",
+"name": "Hakimi",
+"rating": 124,
+"pos": "RB",
+"team": "MOR",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "NEW_isak",
+"name": "Isak",
+"rating": 124,
+"pos": "ST",
+"team": "NEW",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CHE_caicedo",
+"name": "Caicedo",
+"rating": 123,
+"pos": "CDM",
+"team": "CHE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ARS_gyokeres",
+"name": "Gyokeres",
+"rating": 122,
+"pos": "ST",
+"team": "ARS",
+"kind": "club",
+"gift": false
+},
+{
+"id": "AST_martinez",
+"name": "Martinez",
+"rating": 122,
+"pos": "GK",
+"team": "AST",
+"kind": "club",
+"gift": false
+},
+{
+"id": "TOT_son",
+"name": "Son",
+"rating": 121,
+"pos": "LW",
+"team": "TOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_JPN_minamino",
+"name": "Minamino",
+"rating": 119,
+"pos": "LW",
+"team": "JPN",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "NO10_olmo",
+"name": "Dani Olmo",
+"rating": 118,
+"pos": "CAM",
+"team": "SPA",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "NOT_hudsonodoi",
+"name": "Hudson-Odoi",
+"rating": 118,
+"pos": "LW",
+"team": "NOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BRI_joaopedro",
+"name": "Joao Pedro",
+"rating": 118,
+"pos": "ST",
+"team": "BRI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WES_kudus",
+"name": "Kudus",
+"rating": 117,
+"pos": "RW",
+"team": "WES",
+"kind": "club",
+"gift": false
+},
+{
+"id": "MUN_mainoo",
+"name": "Mainoo",
+"rating": 117,
+"pos": "CM",
+"team": "MUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CRY_guehi",
+"name": "Guehi",
+"rating": 116,
+"pos": "CB",
+"team": "CRY",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_eze",
+"name": "Eberechi Eze",
+"rating": 115,
+"pos": "CAM",
+"team": "ENG",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "WOL_sarabia",
+"name": "Sarabia",
+"rating": 115,
+"pos": "LW",
+"team": "WOL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_AUS_ryan",
+"name": "Mathew Ryan",
+"rating": 114,
+"pos": "GK",
+"team": "AUS",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "BRE_wissa",
+"name": "Wissa",
+"rating": 114,
+"pos": "ST",
+"team": "BRE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_guler",
+"name": "Arda Guler",
+"rating": 113,
+"pos": "CAM",
+"team": "TUR",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "BOU_kluivert",
+"name": "Kluivert",
+"rating": 112,
+"pos": "CAM",
+"team": "BOU",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_stanciu",
+"name": "Nicolae Stanciu",
+"rating": 112,
+"pos": "CAM",
+"team": "ROU",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "EVE_beto",
+"name": "Beto",
+"rating": 111,
+"pos": "ST",
+"team": "EVE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "FUL_jimenez",
+"name": "Jimenez",
+"rating": 111,
+"pos": "ST",
+"team": "FUL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WOL_aitnouri",
+"name": "Ait-Nouri",
+"rating": 109,
+"pos": "LB",
+"team": "WOL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_ihagi",
+"name": "Ianis Hagi",
+"rating": 109,
+"pos": "CAM",
+"team": "ROU",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "WES_paqueta",
+"name": "Paqueta",
+"rating": 109,
+"pos": "CAM",
+"team": "WES",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BOU_semenyo",
+"name": "Semenyo",
+"rating": 109,
+"pos": "RW",
+"team": "BOU",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CHE_enzo",
+"name": "Enzo",
+"rating": 108,
+"pos": "CM",
+"team": "CHE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ARS_odegaard",
+"name": "Odegaard",
+"rating": 108,
+"pos": "CAM",
+"team": "ARS",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BAR_pedri",
+"name": "Pedri",
+"rating": 108,
+"pos": "CM",
+"team": "BAR",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BAR_raphinha",
+"name": "Raphinha",
+"rating": 108,
+"pos": "RW",
+"team": "BAR",
+"kind": "club",
+"gift": false
+},
+{
+"id": "TOT_romero",
+"name": "Romero",
+"rating": 108,
+"pos": "CB",
+"team": "TOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_olaru",
+"name": "Darius Olaru",
+"rating": 107,
+"pos": "CAM",
+"team": "ROU",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "NOT_elanga",
+"name": "Elanga",
+"rating": 107,
+"pos": "RW",
+"team": "NOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_POR_bernardo",
+"name": "Bernardo Silva",
+"rating": 106,
+"pos": "RW",
+"team": "POR",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WC_NET_gakpo",
+"name": "Cody Gakpo",
+"rating": 106,
+"pos": "LW",
+"team": "NET",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "BOU_evanilson",
+"name": "Evanilson",
+"rating": 106,
+"pos": "ST",
+"team": "BOU",
+"kind": "club",
+"gift": false
+},
+{
+"id": "LIV_szoboszlai",
+"name": "Szoboszlai",
+"rating": 106,
+"pos": "CAM",
+"team": "LIV",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NOT_gibbswhite",
+"name": "Gibbs-White",
+"rating": 105,
+"pos": "CAM",
+"team": "NOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_FRA_dembele",
+"name": "Ousmane Dembele",
+"rating": 104,
+"pos": "RW",
+"team": "FRA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WC_SPA_olmo",
+"name": "Dani Olmo",
+"rating": 102,
+"pos": "CAM",
+"team": "SPA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "INT_depaul",
+"name": "De Paul",
+"rating": 102,
+"pos": "CM",
+"team": "INT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WES_bowen",
+"name": "Bowen",
+"rating": 101,
+"pos": "RW",
+"team": "WES",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ROOKIE_palmer",
+"name": "Cole Palmer",
+"rating": 101,
+"pos": "CAM",
+"team": "CHE",
+"kind": "rookie",
+"gift": false
+},
+{
+"id": "MUN_garnacho",
+"name": "Garnacho",
+"rating": 101,
+"pos": "LW",
+"team": "MUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "MCI_foden",
+"name": "Foden",
+"rating": 100,
+"pos": "CAM",
+"team": "MCI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ROOKIE_bellingham",
+"name": "Jude Bellingham",
+"rating": 100,
+"pos": "CM",
+"team": "RMA",
+"kind": "rookie",
+"gift": false
+},
+{
+"id": "NO10_macallister",
+"name": "Alexis Mac Allister",
+"rating": 99,
+"pos": "CM",
+"team": "ARG",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "MUN_bruno",
+"name": "Bruno",
+"rating": 99,
+"pos": "CAM",
+"team": "MUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BRE_schade",
+"name": "Schade",
+"rating": 99,
+"pos": "LW",
+"team": "BRE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ROOKIE_vandijk",
+"name": "Virgil van Dijk",
+"rating": 99,
+"pos": "CB",
+"team": "LIV",
+"kind": "rookie",
+"gift": false
+},
+{
+"id": "WOL_cunha",
+"name": "Cunha",
+"rating": 98,
+"pos": "ST",
+"team": "WOL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ALN_mane",
+"name": "Mane",
+"rating": 98,
+"pos": "LW",
+"team": "ALN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "AST_rogers",
+"name": "Rogers",
+"rating": 98,
+"pos": "CAM",
+"team": "AST",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_MOR_amrabat",
+"name": "Sofyan Amrabat",
+"rating": 98,
+"pos": "CDM",
+"team": "MOR",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WC_BRA_bruno",
+"name": "Bruno Guimaraes",
+"rating": 97,
+"pos": "CM",
+"team": "BRA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "NEW_gordon",
+"name": "Gordon",
+"rating": 97,
+"pos": "LW",
+"team": "NEW",
+"kind": "club",
+"gift": false
+},
+{
+"id": "TOT_maddison",
+"name": "Maddison",
+"rating": 97,
+"pos": "CAM",
+"team": "TOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_mount",
+"name": "Mason Mount",
+"rating": 97,
+"pos": "CAM",
+"team": "ENG",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "BRI_mitoma",
+"name": "Mitoma",
+"rating": 97,
+"pos": "LW",
+"team": "BRI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "FUL_pereira",
+"name": "Pereira",
+"rating": 97,
+"pos": "CAM",
+"team": "FUL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_JPN_kubo",
+"name": "Takefusa Kubo",
+"rating": 97,
+"pos": "RW",
+"team": "JPN",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "NO10_eriksen",
+"name": "Christian Eriksen",
+"rating": 96,
+"pos": "CM",
+"team": "DEN",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "ALN_joaofelix",
+"name": "Joao Felix",
+"rating": 96,
+"pos": "CF",
+"team": "ALN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "SUN_lefee",
+"name": "Le Fee",
+"rating": 96,
+"pos": "CM",
+"team": "SUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_ziyech",
+"name": "Hakim Ziyech",
+"rating": 95,
+"pos": "RW",
+"team": "MOR",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "WC_AUS_irvine",
+"name": "Jackson Irvine",
+"rating": 95,
+"pos": "CM",
+"team": "AUS",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "EVE_pickford",
+"name": "Pickford",
+"rating": 95,
+"pos": "GK",
+"team": "EVE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_POL_zielinski",
+"name": "Piotr Zielinski",
+"rating": 95,
+"pos": "CM",
+"team": "POL",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "BRI_rutter",
+"name": "Rutter",
+"rating": 95,
+"pos": "ST",
+"team": "BRI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "SUN_clarke",
+"name": "Clarke",
+"rating": 94,
+"pos": "LW",
+"team": "SUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "FUL_iwobi",
+"name": "Iwobi",
+"rating": 94,
+"pos": "RW",
+"team": "FUL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_wardprowse",
+"name": "James Ward-Prowse",
+"rating": 94,
+"pos": "CM",
+"team": "ENG",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "WC_ARG_lautaro",
+"name": "Lautaro Martinez",
+"rating": 94,
+"pos": "ST",
+"team": "ARG",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "LIV_macallister",
+"name": "Mac Allister",
+"rating": 94,
+"pos": "CM",
+"team": "LIV",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_CRO_kovacic",
+"name": "Mateo Kovacic",
+"rating": 94,
+"pos": "CM",
+"team": "CRO",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "BRE_mbeumo",
+"name": "Mbeumo",
+"rating": 94,
+"pos": "RW",
+"team": "BRE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NEW_brunog",
+"name": "Bruno G",
+"rating": 93,
+"pos": "CM",
+"team": "NEW",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_oscar",
+"name": "Oscar",
+"rating": 93,
+"pos": "CAM",
+"team": "BRA",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "WC_ENG_foden",
+"name": "Phil Foden",
+"rating": 93,
+"pos": "CAM",
+"team": "ENG",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "NO10_locelso",
+"name": "Giovani Lo Celso",
+"rating": 92,
+"pos": "CAM",
+"team": "ARG",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "AST_watkins",
+"name": "Watkins",
+"rating": 92,
+"pos": "ST",
+"team": "AST",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CRY_eze",
+"name": "Eze",
+"rating": 91,
+"pos": "CAM",
+"team": "CRY",
+"kind": "club",
+"gift": false
+},
+{
+"id": "EVE_ndiaye",
+"name": "Ndiaye",
+"rating": 91,
+"pos": "LW",
+"team": "EVE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NO10_forsberg",
+"name": "Emil Forsberg",
+"rating": 90,
+"pos": "CAM",
+"team": "SWE",
+"kind": "no10",
+"gift": false
+},
+{
+"id": "CRY_mateta",
+"name": "Mateta",
+"rating": 90,
+"pos": "ST",
+"team": "CRY",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_SPA_baena",
+"name": "Alex Baena",
+"rating": 89,
+"pos": "LW",
+"team": "SPA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WES_coufal",
+"name": "Coufal",
+"rating": 89,
+"pos": "RB",
+"team": "WES",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CHE_disasi",
+"name": "Disasi",
+"rating": 89,
+"pos": "CB",
+"team": "CHE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "FUL_reed",
+"name": "Reed",
+"rating": 89,
+"pos": "CDM",
+"team": "FUL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NOT_yates",
+"name": "Yates",
+"rating": 89,
+"pos": "CDM",
+"team": "NOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_JPN_ueda",
+"name": "Ayase Ueda",
+"rating": 88,
+"pos": "ST",
+"team": "JPN",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "TOT_davies",
+"name": "Davies",
+"rating": 88,
+"pos": "LB",
+"team": "TOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WES_cresswell",
+"name": "Cresswell",
+"rating": 87,
+"pos": "LB",
+"team": "WES",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BAR_fermin",
+"name": "Fermin Lopez",
+"rating": 85,
+"pos": "CAM",
+"team": "BAR",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BRI_igor",
+"name": "Igor",
+"rating": 85,
+"pos": "CB",
+"team": "BRI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "MUN_lindelof",
+"name": "Lindelof",
+"rating": 85,
+"pos": "CB",
+"team": "MUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NOT_toffolo",
+"name": "Toffolo",
+"rating": 85,
+"pos": "LB",
+"team": "NOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ARS_trossard",
+"name": "Trossard",
+"rating": 85,
+"pos": "LW",
+"team": "ARS",
+"kind": "club",
+"gift": false
+},
+{
+"id": "INT_redondo",
+"name": "Redondo",
+"rating": 84,
+"pos": "CDM",
+"team": "INT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_NET_weghorst",
+"name": "Wout Weghorst",
+"rating": 84,
+"pos": "ST",
+"team": "NET",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "MCI_ake",
+"name": "Ake",
+"rating": 83,
+"pos": "CB",
+"team": "MCI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "SUN_ballard",
+"name": "Ballard",
+"rating": 83,
+"pos": "CB",
+"team": "SUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CHE_cucurella",
+"name": "Cucurella",
+"rating": 83,
+"pos": "LB",
+"team": "CHE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BAR_ferran",
+"name": "Ferran Torres",
+"rating": 83,
+"pos": "LW",
+"team": "BAR",
+"kind": "club",
+"gift": false
+},
+{
+"id": "MUN_malacia",
+"name": "Malacia",
+"rating": 83,
+"pos": "LB",
+"team": "MUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_FRA_thuram",
+"name": "Marcus Thuram",
+"rating": 82,
+"pos": "ST",
+"team": "FRA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "NEW_targett",
+"name": "Targett",
+"rating": 82,
+"pos": "LB",
+"team": "NEW",
+"kind": "club",
+"gift": false
+},
+{
+"id": "CRY_ward",
+"name": "Ward",
+"rating": 82,
+"pos": "RB",
+"team": "CRY",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BOU_christie",
+"name": "Christie",
+"rating": 80,
+"pos": "CM",
+"team": "BOU",
+"kind": "club",
+"gift": false
+},
+{
+"id": "LIV_gomez",
+"name": "Gomez",
+"rating": 80,
+"pos": "CB",
+"team": "LIV",
+"kind": "club",
+"gift": false
+},
+{
+"id": "EVE_young",
+"name": "Young",
+"rating": 80,
+"pos": "RB",
+"team": "EVE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_BRA_igor",
+"name": "Igor Thiago",
+"rating": 79,
+"pos": "ST",
+"team": "BRA",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "CRY_lerma",
+"name": "Lerma",
+"rating": 79,
+"pos": "CDM",
+"team": "CRY",
+"kind": "club",
+"gift": false
+},
+{
+"id": "LIV_tsimikas",
+"name": "Tsimikas",
+"rating": 79,
+"pos": "LB",
+"team": "LIV",
+"kind": "club",
+"gift": false
+},
+{
+"id": "NEW_burn",
+"name": "Burn",
+"rating": 77,
+"pos": "LB",
+"team": "NEW",
+"kind": "club",
+"gift": false
+},
+{
+"id": "AST_digne",
+"name": "Digne",
+"rating": 77,
+"pos": "LB",
+"team": "AST",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_POR_palhinha",
+"name": "Palhinha",
+"rating": 77,
+"pos": "CDM",
+"team": "POR",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "AST_cash",
+"name": "Cash",
+"rating": 76,
+"pos": "RB",
+"team": "AST",
+"kind": "club",
+"gift": false
+},
+{
+"id": "TOT_dragusin",
+"name": "Dragusin",
+"rating": 76,
+"pos": "CB",
+"team": "TOT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_POL_kaminski",
+"name": "Jakub Kaminski",
+"rating": 76,
+"pos": "LW",
+"team": "POL",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WC_AUS_yengi",
+"name": "Kusini Yengi",
+"rating": 75,
+"pos": "ST",
+"team": "AUS",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "BRI_lamptey",
+"name": "Lamptey",
+"rating": 75,
+"pos": "RB",
+"team": "BRI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_CRO_majer",
+"name": "Lovro Majer",
+"rating": 75,
+"pos": "CAM",
+"team": "CRO",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "EVE_tarkowski",
+"name": "Tarkowski",
+"rating": 75,
+"pos": "CB",
+"team": "EVE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ALN_alkhaibari",
+"name": "Al Khaibari",
+"rating": 74,
+"pos": "CDM",
+"team": "ALN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BOU_kerkez",
+"name": "Kerkez",
+"rating": 74,
+"pos": "LB",
+"team": "BOU",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_ARG_simeone",
+"name": "Giuliano Simeone",
+"rating": 73,
+"pos": "RW",
+"team": "ARG",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "FUL_robinson",
+"name": "Robinson",
+"rating": 73,
+"pos": "LB",
+"team": "FUL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "MCI_akanji",
+"name": "Akanji",
+"rating": 72,
+"pos": "CB",
+"team": "MCI",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_MOR_elkhannouss",
+"name": "Bilal El Khannouss",
+"rating": 72,
+"pos": "CAM",
+"team": "MOR",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "WOL_doherty",
+"name": "Doherty",
+"rating": 72,
+"pos": "RB",
+"team": "WOL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "BRE_janelt",
+"name": "Janelt",
+"rating": 72,
+"pos": "CM",
+"team": "BRE",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ARS_kepa",
+"name": "Kepa",
+"rating": 72,
+"pos": "GK",
+"team": "ARS",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WOL_lemina",
+"name": "Lemina",
+"rating": 72,
+"pos": "CDM",
+"team": "WOL",
+"kind": "club",
+"gift": false
+},
+{
+"id": "ALN_alghannam",
+"name": "Al Ghannam",
+"rating": 71,
+"pos": "RB",
+"team": "ALN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "INT_aviles",
+"name": "Aviles",
+"rating": 71,
+"pos": "CB",
+"team": "INT",
+"kind": "club",
+"gift": false
+},
+{
+"id": "SUN_onien",
+"name": "O'Nien",
+"rating": 71,
+"pos": "CB",
+"team": "SUN",
+"kind": "club",
+"gift": false
+},
+{
+"id": "WC_ENG_henderson",
+"name": "Jordan Henderson",
+"rating": 70,
+"pos": "CM",
+"team": "ENG",
+"kind": "wc",
+"gift": false
+},
+{
+"id": "BRE_potter",
+"name": "Lewis Potter",
+"rating": 70,
+"pos": "LWB",
+"team": "BRE",
+"kind": "club",
+"gift": false
+}
+]

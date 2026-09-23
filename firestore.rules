@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// A SMALL WORLD CUP fan game
+// Firestore -> Rules -> paste this -> Publish.
+// Change the email here AND in firebase-config.js if the admin account ever changes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == '24hbielak@stjosephsrush.com';
+    }
+
+    function isSelf(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // one document per player: profile + their save file
+    match /players/{uid} {
+      // you can read your own; the admin can read everyone's
+      allow read: if isAdmin() || isSelf(uid);
+
+      // first sign-in: you may create your own card, never banned
+      allow create: if isAdmin() || (isSelf(uid)
+        && request.resource.data.get('banned', false) == false
+        && request.resource.data.keys().hasOnly(
+             ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'lastSeen', 'updatedAt']));
+
+      // you may update your own save, but not your ban state, and not while banned
+      allow update: if isAdmin() || (isSelf(uid)
+        && resource.data.get('banned', false) == false
+        && request.resource.data.get('banned', false) == false
+        && request.resource.data.get('banReason', '') == resource.data.get('banReason', '')
+        && request.resource.data.keys().hasOnly(
+             ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'lastSeen', 'updatedAt'])
+        && request.resource.data.get('save', '').size() < 300000);
+
+      allow delete: if isAdmin();
+    }
+
+    // patch notes: everyone reads, only the admin writes
+    match /site/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

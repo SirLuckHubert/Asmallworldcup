@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Small World Cup — fan game</title>
+<meta name="description" content="Fling-to-move ragdoll football. Sign in with Google and your cards, coins and season follow you.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23123c1e'/><circle cx='16' cy='16' r='8' fill='%23eef6ee'/><circle cx='16' cy='16' r='3' fill='%23123c1e'/></svg>">
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===================== signed out ===================== -->
+  <section class="gate" id="gate" hidden>
+    <h1>Ragdoll <span>Football</span></h1>
+    <p>Drag anywhere, let go, and you get flung across the pitch. Sign in with Google so your
+       cards, coins and season are saved and follow you to any computer.</p>
+    <button class="gsi" id="signin">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <p class="muted" style="margin-top:22px">No account details are shared with anyone. Your progress is
+       stored against your Google account so you can carry on where you left off.</p>
+  </section>
+
+  <!-- ===================== banned ===================== -->
+  <section class="gate" id="banned" hidden>
+    <h1 style="color:var(--red)">Banned</h1>
+    <p id="banReason">This account can't play at the moment.</p>
+    <button class="ghost" id="signout2">Sign out</button>
+  </section>
+
+  <!-- ===================== signed in ===================== -->
+  <main id="app" hidden>
+    <header class="bar">
+      <div class="logo">A Small <b>World Cup</b> — fan game</div>
+      <div class="spacer"></div>
+      <div class="who">
+        <img id="avatar" alt="" referrerpolicy="no-referrer">
+        <span id="uname">…</span>
+        <span class="tag" id="adminTag" hidden>Admin</span>
+      </div>
+      <a class="btn ghost small" id="adminLink" href="admin.html" hidden>Admin console</a>
+      <button class="ghost small" id="signout">Sign out</button>
+    </header>
+
+    <div class="stage">
+      <div class="stage-bar">
+        <span class="dot" id="syncDot"></span>
+        <span id="syncText">Progress saves to your account</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="ghost small" id="fullscreen">Fullscreen</button>
+      </div>
+      <div class="frame-holder" id="holder">
+        <div class="play-cover" id="cover">
+          <p class="muted">Sound and keyboard work best after you click.</p>
+          <button id="play">▶ Play</button>
+          <p class="muted" id="loadNote" hidden>Loading the game… the first start takes a few seconds.</p>
+        </div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2>How to play</h2>
+      <p class="muted">
+        Click near your player, drag, and release — you're flung the way you dragged, and you keep
+        that momentum. Throw again in mid-air to change direction. Hit the ball while you're moving
+        fast and it goes with you. First to the whistle wins.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>Patch notes</h2>
+      <div id="notes"><p class="muted">Loading…</p></div>
+    </section>
+
+    <footer class="small">
+      A fan project, not affiliated with A Small World Cup or any club or league.<br>
+      All art, players and cards are original and drawn in code.
+    </footer>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="app.js"></script>
+<script>
+  // if the Firebase modules can't be fetched (offline, blocker, no config) say so instead of a blank page
+  setTimeout(function () {
+    if (window.__aswcBooted) return;
+    document.body.innerHTML =
+      '<div class="wrap"><section class="panel"><h2>Couldn\'t start</h2><p class="muted">' +
+      'The page could not load the Google sign-in libraries. Check your internet connection, ' +
+      'turn off any script blocker for this site, and reload. If you have just set this up, ' +
+      'make sure firebase-config.js has your project details in it.</p></section></div>';
+  }, 8000);
+</script>
+</body>
+</html>
