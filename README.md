@@ -273,6 +273,25 @@ Safari, which doesn't allow element fullscreen.
 
 ## If the browser build feels slow
 
+**26 Sep - two big ones.** The browser now presents a **640x360 canvas** instead of a
+1920x1080 one (the frame is drawn at that resolution anyway — sending nine times the pixels to
+the canvas bought nothing), and `bridge.js` scales that canvas up to fill the window on the GPU,
+which is free. And the game loop no longer calls `clock.tick(60)` in the browser: pygbag already
+resumes the loop once a frame, so waiting for the clock *as well* spent the frame budget twice.
+Measured pixel traffic in a match frame: **6.55 Mpx -> 2.63 Mpx, 2.5x less**.
+
+Two switches on the game's URL (they work on `play.html` too, which passes them through):
+
+* **`?fps=1`** — draws the frame rate and the canvas size in the corner. This is the number to
+  tell me if it still feels slow.
+* **`?big=1`** — goes back to a full-size 1920x1080 canvas, in case a browser dislikes the small one.
+
+What is left, if the frame rate is still short: 2.07 of those 2.63 Mpx is the pitch background,
+blitted whole every frame. Cutting that means only redrawing the parts of the screen that
+changed (dirty rects), which is a bigger job and needs care to avoid smears.
+
+
+
 Big pass on this on 25 Sep: opening a crate, scoring, and the card-heavy menus used to allocate
 3-8 megapixels of surface **every frame** and throw it away. Now nothing rebuilds what it can keep -
 the pixel downscale, the veils, the auras, the card gloss, the pack backdrop, the chevron stage, the

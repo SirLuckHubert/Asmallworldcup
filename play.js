@@ -10,10 +10,10 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, addDoc, query, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-09-26d";
-import { Net } from "./net.js?v=2026-09-26d";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-09-26d";
-import { checkText } from "./words.js?v=2026-09-26d";
+import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-09-26e";
+import { Net } from "./net.js?v=2026-09-26e";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-09-26e";
+import { checkText } from "./words.js?v=2026-09-26e";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;
@@ -143,10 +143,13 @@ async function startGame() {
   }
   frame = document.createElement("iframe");
   frame.title = "aSmallWorldCup";
+  // pass switches straight through: play.html?fps=1 -> the game shows its frame rate,
+  // play.html?big=1 -> full-size canvas instead of the small one
+  const flags = location.search && location.search.length > 1 ? location.search : "";
   frame.allow = "autoplay; fullscreen; gamepad; xr-spatial-tracking";
   frame.setAttribute("allowfullscreen", "");
   frame.setAttribute("webkitallowfullscreen", "");
-  frame.src = GAME_PATH;
+  frame.src = GAME_PATH + flags;
   frame.onload = () => { pane(null); };          // the game takes the window
   $("stage").appendChild(frame);
   setTimeout(() => {

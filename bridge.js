@@ -6,28 +6,86 @@
   var queue = [];          // messages waiting for the game to poll
   var netUp = false;
 
-  // Fill the window. pygbag centres a fixed-size canvas; this scales it up to the
-  // biggest 16:9 rectangle the window holds, with the pixels kept crisp.
-  function fillWindow() {
+  // ---- fill the window
+  // pygbag draws into a fixed-size canvas and leaves it sitting in the middle of the page.
+  // This scales it to the biggest rectangle of the same shape the window holds, and forces
+  // every wrapper around it out of the way. It re-applies on resize and on a timer, because
+  // the runtime sets its own inline styles on the canvas whenever the display mode changes.
+  function clearFor(el) {
+    el.style.setProperty("position", "fixed", "important");
+    el.style.setProperty("left", "0", "important");
+    el.style.setProperty("top", "0", "important");
+    el.style.setProperty("width", "100%", "important");
+    el.style.setProperty("height", "100%", "important");
+    el.style.setProperty("max-width", "none", "important");
+    el.style.setProperty("max-height", "none", "important");
+    el.style.setProperty("margin", "0", "important");
+    el.style.setProperty("padding", "0", "important");
+    el.style.setProperty("overflow", "visible", "important");
+    el.style.setProperty("transform", "none", "important");
+    el.style.setProperty("background", "#000", "important");
+  }
+
+  function fit() {
+    var c = document.querySelector("canvas");
+    if (!c) return;
+    for (var el = c.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+      if (el.tagName === "BODY") {
+        el.style.setProperty("margin", "0", "important");
+        el.style.setProperty("padding", "0", "important");
+        el.style.setProperty("overflow", "hidden", "important");
+        el.style.setProperty("background", "#000", "important");
+      } else {
+        clearFor(el);
+      }
+    }
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    var h = window.innerHeight || document.documentElement.clientHeight;
+    var cw = c.width || 16, ch = c.height || 9;
+    var k = Math.min(w / cw, h / ch);                 // keep the shape, fill what we can
+    var fw = Math.max(1, Math.round(cw * k));
+    var fh = Math.max(1, Math.round(ch * k));
+    c.style.setProperty("position", "fixed", "important");
+    c.style.setProperty("left", Math.round((w - fw) / 2) + "px", "important");
+    c.style.setProperty("top", Math.round((h - fh) / 2) + "px", "important");
+    c.style.setProperty("right", "auto", "important");
+    c.style.setProperty("bottom", "auto", "important");
+    c.style.setProperty("width", fw + "px", "important");
+    c.style.setProperty("height", fh + "px", "important");
+    c.style.setProperty("max-width", "none", "important");
+    c.style.setProperty("max-height", "none", "important");
+    c.style.setProperty("margin", "0", "important");
+    c.style.setProperty("transform", "none", "important");
+    c.style.setProperty("image-rendering", "pixelated", "important");
+    c.style.setProperty("display", "block", "important");
+    c.style.setProperty("touch-action", "none", "important");
+  }
+
+  function startFitting() {
+    fit();
+    addEventListener("resize", fit);
+    addEventListener("orientationchange", fit);
+    var n = 0;
+    var timer = setInterval(function () {
+      fit();
+      if (++n > 120) {                                 // after a minute the layout has settled
+        clearInterval(timer);
+        setInterval(fit, 2000);
+      }
+    }, 500);
     try {
       var css = document.createElement("style");
-      css.id = "aswc-fill";
-      css.textContent =
-        "html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#000}" +
-        "canvas{position:absolute!important;top:50%!important;left:50%!important;" +
-        "transform:translate(-50%,-50%)!important;" +
-        "width:min(100vw, calc(100vh * 16 / 9))!important;" +
-        "height:min(100vh, calc(100vw * 9 / 16))!important;" +
-        "max-width:none!important;max-height:none!important;" +
-        "image-rendering:pixelated;image-rendering:crisp-edges;display:block!important}";
+      css.textContent = "html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#000}";
       (document.head || document.documentElement).appendChild(css);
-    } catch (e) { /* the game still runs, just letterboxed */ }
+    } catch (e) { /* the inline styles above already did the work */ }
   }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fillWindow);
+    document.addEventListener("DOMContentLoaded", startFitting);
   } else {
-    fillWindow();
+    startFitting();
   }
+  addEventListener("load", fit);
 
   function up(msg) {
     try { parent.postMessage(msg, location.origin); } catch (e) { /* not framed */ }
