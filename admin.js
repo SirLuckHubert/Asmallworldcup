@@ -37,6 +37,8 @@ onAuthStateChanged(auth, async (user) => {
   $("gate").hidden = !!isAdmin;
   $("app").hidden = !isAdmin;
   $("wrongAccount").hidden = !(user && !isAdmin);
+  $("accountChip").hidden = !isAdmin;
+  $("signout").hidden = !isAdmin;
   if (!isAdmin) return;
   $("avatar").src = user.photoURL || "";
   $("uname").textContent = user.displayName || user.email;
@@ -135,7 +137,7 @@ function drawPlayers() {
     });
     const td = document.createElement("td");
     const b = document.createElement("button");
-    b.className = "small ghost";
+    b.className = "btn btn-sm";
     b.textContent = "Open";
     b.onclick = () => openPlayer(p.uid);
     td.appendChild(b);
@@ -268,9 +270,9 @@ function drawNotes() {
     const d = document.createElement("div");
     d.textContent = n.body || "";
     const del = document.createElement("button");
-    del.className = "small danger";
+    del.className = "btn btn-sm btn-danger";
     del.textContent = "Delete";
-    del.style.marginTop = "8px";
+    del.style.marginTop = "10px";
     del.onclick = async () => {
       notes.splice(i, 1);
       await writeNotes("Note deleted");

@@ -3,37 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin console — A Small World Cup fan game</title>
+<title>Admin console — aSmallWorldCup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%239646eb'/><rect x='8' y='12' width='16' height='12' fill='%23eef6ee'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060b08'/><rect x='9' y='12' width='14' height='10' rx='2' fill='%23a06bff'/></svg>">
 </head>
 <body>
-<div class="wrap">
 
-  <section class="gate" id="gate" hidden>
-    <h1>Admin <span>console</span></h1>
-    <p id="gateMsg">Sign in with the admin account to carry on.</p>
-    <button class="gsi" id="signin">
-      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
-      Sign in with Google
-    </button>
-    <p class="muted" id="wrongAccount" hidden>That account isn't the admin. <a href="#" id="switch">Use another account</a>.</p>
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="ball" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="#eef5ef"/>
+        <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/>
+      </svg>
+      <span>aSmall<em>WorldCup</em></span>
+    </a>
+    <div class="nav-links" id="navLinks" style="margin-left:6px">
+      <a href="index.html">Back to the game</a>
+    </div>
+    <div class="nav-right">
+      <span class="chip" id="accountChip" hidden>
+        <img id="avatar" alt="" referrerpolicy="no-referrer">
+        <span id="uname">…</span>
+        <span class="tag">Admin</span>
+      </span>
+      <button class="btn btn-sm" id="signout" hidden>Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap admin-shell">
+
+  <!-- signed out / wrong account -->
+  <section id="gate" hidden>
+    <div class="panel" style="text-align:center; padding:60px 26px">
+      <span class="eyebrow" style="justify-content:center; display:inline-flex">Restricted</span>
+      <h2 class="h2" style="font-size:30px">Admin console</h2>
+      <p class="muted" id="gateMsg" style="max-width:46ch; margin:12px auto 24px">
+        Sign in with the admin account to see every player's save, hand out cards and post patch notes.
+      </p>
+      <button class="btn btn-google btn-lg" id="signin">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Sign in with Google
+      </button>
+      <p class="muted" id="wrongAccount" hidden style="margin-top:18px">
+        That account isn't the admin. <a href="#" id="switch">Use another account</a>.
+      </p>
+    </div>
   </section>
 
-  <main id="app" hidden>
-    <header class="bar">
-      <div class="logo">Admin <b>console</b></div>
-      <div class="spacer"></div>
-      <div class="who"><img id="avatar" alt="" referrerpolicy="no-referrer"><span id="uname">…</span><span class="tag">Admin</span></div>
-      <a class="btn ghost small" href="index.html">Play the game</a>
-      <button class="ghost small" id="signout">Sign out</button>
-    </header>
+  <!-- the console -->
+  <section id="app" hidden>
 
-    <section class="panel">
-      <h2>Players <span class="muted" id="count" style="text-transform:none;letter-spacing:0"></span></h2>
-      <div class="row" style="margin-bottom:12px">
-        <input type="search" id="search" placeholder="Search name or email" style="min-width:260px">
-        <button class="ghost small" id="refresh">Refresh</button>
+    <div class="panel">
+      <h2>Players <span class="muted" id="count" style="text-transform:none; letter-spacing:0; font-weight:500"></span></h2>
+      <div class="row" style="margin-bottom:14px">
+        <input type="search" id="search" placeholder="Search name or email" style="min-width:260px; flex:1 1 260px">
+        <button class="btn btn-sm" id="refresh">Refresh</button>
       </div>
       <div style="overflow-x:auto">
         <table class="players">
@@ -44,56 +73,58 @@
           <tbody id="rows"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
         </table>
       </div>
-    </section>
+    </div>
 
-    <section class="panel" id="editor" hidden>
+    <div class="panel" id="editor" hidden>
       <h2 id="editTitle">Player</h2>
-      <div class="row" style="margin-bottom:14px">
-        <button id="ban" class="danger small">Ban</button>
-        <button id="unban" class="small" hidden>Unban</button>
-        <input type="text" id="banReason" placeholder="Reason (shown to them)" style="min-width:240px">
+
+      <div class="row" style="margin-bottom:18px">
+        <button class="btn btn-sm btn-danger" id="ban">Ban</button>
+        <button class="btn btn-sm" id="unban" hidden>Unban</button>
+        <input type="text" id="banReason" placeholder="Reason (they see this)" style="min-width:240px; flex:1 1 240px">
       </div>
 
-      <div class="row" style="margin-bottom:14px; align-items:flex-end">
-        <label class="field">Give a card
-          <input list="cardList" id="cardPick" placeholder="Pedro Neto" style="min-width:260px">
+      <div class="row" style="margin-bottom:18px; align-items:flex-end">
+        <label class="field" style="flex:1 1 260px">Give a card
+          <input list="cardList" id="cardPick" placeholder="Pedro Neto">
         </label>
         <datalist id="cardList"></datalist>
-        <button class="small" id="giveCard">Give card</button>
+        <button class="btn btn-sm btn-gold" id="giveCard">Give card</button>
         <label class="field">Coins <input type="number" id="coins" value="1000" style="width:130px"></label>
-        <button class="small" id="giveCoins">Add coins</button>
+        <button class="btn btn-sm" id="giveCoins">Add coins</button>
         <label class="field">Star points <input type="number" id="sp" value="1000" style="width:130px"></label>
-        <button class="small" id="giveSp">Add star points</button>
+        <button class="btn btn-sm" id="giveSp">Add star points</button>
       </div>
 
       <label class="field">Save file (JSON)
         <textarea id="saveText" spellcheck="false"></textarea>
       </label>
-      <div class="row" style="margin-top:12px">
-        <button id="saveJson">Save changes</button>
-        <button class="ghost small" id="reload">Reload from cloud</button>
-        <button class="danger small" id="wipe">Wipe save</button>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" id="saveJson">Save changes</button>
+        <button class="btn btn-sm" id="reload">Reload from cloud</button>
+        <button class="btn btn-sm btn-danger" id="wipe">Wipe save</button>
         <span class="muted" id="editHint"></span>
       </div>
-    </section>
+    </div>
 
-    <section class="panel">
+    <div class="panel">
       <h2>Patch notes</h2>
       <div class="row" style="align-items:flex-end; margin-bottom:12px">
         <label class="field">Date <input type="text" id="noteDate" style="width:150px"></label>
-        <label class="field" style="flex:1; min-width:220px">Title <input type="text" id="noteTitle" placeholder="What changed"></label>
+        <label class="field" style="flex:1 1 240px">Title <input type="text" id="noteTitle" placeholder="What changed"></label>
       </div>
       <label class="field">Body
         <textarea id="noteBody" style="min-height:120px"></textarea>
       </label>
-      <div class="row" style="margin-top:12px">
-        <button id="addNote">Post note</button>
-        <span class="muted">Newest first. Players see these under the game.</span>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" id="addNote">Post note</button>
+        <span class="muted">Newest first. Players see these on the home page.</span>
       </div>
-      <div id="noteList" style="margin-top:18px"></div>
-    </section>
-  </main>
-</div>
+      <div id="noteList" style="margin-top:22px"></div>
+    </div>
+
+  </section>
+</main>
 
 <div class="toast" id="toast"></div>
 <script type="module" src="admin.js"></script>

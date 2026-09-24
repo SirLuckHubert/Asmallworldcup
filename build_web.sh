@@ -57,6 +57,12 @@ else:
 PY
 
 echo
-echo "Done. Test it locally with:"
-echo "    python3 -m http.server -d \"$HERE\" 8000    # then open http://localhost:8000"
-echo "Then commit web/ and push - GitHub Pages serves it from that folder."
+echo "Done."
+echo
+echo "TESTING IT:"
+echo "  * Best: commit web/ and push, then open the GitHub Pages URL."
+echo "  * Locally you MUST use pygbag's own server, not python -m http.server:"
+echo "        python3 -m pygbag --port 8000 \"$STAGE\"      # then http://localhost:8000"
+echo "    (On localhost pygbag switches to DEV MODE and looks for the python/pygame"
+echo "     runtime at http://localhost:8000/cdn/. Only pygbag's server has that copy;"
+echo "     a plain web server gives a grey screen and 'cannot import name Vector2'.)"

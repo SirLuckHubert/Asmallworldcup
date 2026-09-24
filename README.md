@@ -6,15 +6,17 @@ that can read every save and hand out cards.
 
 ```
 web/
-  index.html          the page players see: sign-in, the game, patch notes
-  app.js              sign-in, cloud saves, ban checks, patch notes
+  index.html          the site: hero, the game, features, screenshots, modes, how to play, patch notes
+  style.css           the whole look (dark pitch UI, glass cards, motion)
+  app.js              sign-in, cloud saves, ban checks, patch notes, fullscreen, scroll reveals
   admin.html/.js      admin console (locked to 24hbielak@stjosephsrush.com)
   firebase-config.js  <- the only file you have to edit
   firestore.rules     paste into Firebase so nobody can read anyone else's save
   bridge.js           lets the game inside the frame talk to the page
   cards.json          card list for the admin's "give a card" box
-  style.css
+  shots/*.png         the screenshots on the home page (regenerate whenever the game changes)
   build_web.sh        builds the game into web/game/ with pygbag
+  convert_audio.sh    turns the mp3s into the .ogg files the browser needs
   game/               (created by build_web.sh - the actual browser build)
 ```
 
@@ -58,8 +60,17 @@ runs pygbag, drops the result in `web/game/` and hooks `bridge.js` into it.
 Test it before pushing:
 
 ```bash
-python3 -m http.server -d web 8000     # http://localhost:8000
+python3 -m pygbag --port 8000 .web-build/aswc     # http://localhost:8000
 ```
+
+**Don't test the build with `python3 -m http.server`.** On `localhost` pygbag flips into DEV MODE
+and fetches the Python/pygame runtime from `http://localhost:8000/cdn/` instead of the real CDN.
+Only pygbag's own server has that copy, so a plain web server leaves you with a grey canvas and
+`ImportError: cannot import name 'Vector2' from 'pygame'` in the console. On the live GitHub Pages
+URL there is no dev mode and the runtime comes from `pygame-web.github.io`, so the site works.
+
+The page itself (`index.html`, sign-in, patch notes) is fine to preview with any server — it's only
+the `game/` folder that needs pygbag's.
 
 ## 4. Publish
 
@@ -90,6 +101,20 @@ Sign in with that account and an **Admin console** button appears on the game pa
 The rules file enforces all of this on the server: a normal player can only read and write their
 own save, can't change their own ban state, and can't see anyone else's data — even if they poke at
 the page's code.
+
+## Playing on an iPad / phone
+
+Touch is handled by the game itself: drag anywhere on the pitch to throw. Menus are all tap targets,
+and a pause button sits next to the match clock so you never need an Esc key. The page's **Fullscreen**
+button uses the real fullscreen API where it exists and falls back to a full-window CSS mode on iPad
+Safari, which doesn't allow element fullscreen.
+
+## If the browser build feels slow
+
+The web build already draws at 640x360 (the game's own pixel resolution) instead of scaling a
+1920x1080 frame, caches rotated sprites, text and translucent panels, and caps physics catch-up at
+three steps a frame. If you still see stutter, close other tabs first - pygbag shares one CPU core
+with everything else on the page.
 
 ## Things worth knowing
 

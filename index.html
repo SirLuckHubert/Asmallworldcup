@@ -2,97 +2,364 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>A Small World Cup — fan game</title>
-<meta name="description" content="Fling-to-move ragdoll football. Sign in with Google and your cards, coins and season follow you.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>aSmallWorldCup — tiny players, massive matches</title>
+<meta name="description" content="A fling-to-move ragdoll football game. Drag, release, and get thrown across the pitch. Play free in your browser — your cards, coins and season save to your account.">
+<meta property="og:title" content="aSmallWorldCup">
+<meta property="og:description" content="Tiny players. Massive matches. Fling-to-move ragdoll football, free in your browser.">
+<meta name="theme-color" content="#060b08">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23123c1e'/><circle cx='16' cy='16' r='8' fill='%23eef6ee'/><circle cx='16' cy='16' r='3' fill='%23123c1e'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060b08'/><circle cx='16' cy='16' r='9' fill='%233ef08a'/><path d='M16 9l4 3-1.5 5h-5L12 12z' fill='%23060b08'/></svg>">
 </head>
 <body>
-<div class="wrap">
 
-  <!-- ===================== signed out ===================== -->
-  <section class="gate" id="gate" hidden>
-    <h1>Ragdoll <span>Football</span></h1>
-    <p>Drag anywhere, let go, and you get flung across the pitch. Sign in with Google so your
-       cards, coins and season are saved and follow you to any computer.</p>
-    <button class="gsi" id="signin">
-      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
-      Sign in with Google
-    </button>
-    <p class="muted" style="margin-top:22px">No account details are shared with anyone. Your progress is
-       stored against your Google account so you can carry on where you left off.</p>
-  </section>
+<!-- ======================= nav ======================= -->
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <svg class="ball" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="#eef5ef"/>
+        <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/>
+        <path d="M16 3.2l.1 2.9M4.6 12.3l2.7 1M27.4 12.3l-2.7 1M9.2 27l1.8-2.4M22.8 27L21 24.6" stroke="#060b08" stroke-width="1.6"/>
+      </svg>
+      <span>aSmall<em>WorldCup</em></span>
+    </a>
 
-  <!-- ===================== banned ===================== -->
-  <section class="gate" id="banned" hidden>
-    <h1 style="color:var(--red)">Banned</h1>
-    <p id="banReason">This account can't play at the moment.</p>
-    <button class="ghost" id="signout2">Sign out</button>
-  </section>
+    <div class="nav-links" id="navLinks">
+      <a href="#play">Play</a>
+      <a href="#about">About</a>
+      <a href="#features">Features</a>
+      <a href="#modes">Modes</a>
+      <a href="#howto">How to play</a>
+      <a href="#news">Patch notes</a>
+    </div>
 
-  <!-- ===================== signed in ===================== -->
-  <main id="app" hidden>
-    <header class="bar">
-      <div class="logo">A Small <b>World Cup</b> — fan game</div>
-      <div class="spacer"></div>
-      <div class="who">
+    <div class="nav-right">
+      <button class="btn btn-sm btn-primary" id="navSignin">Sign in</button>
+      <span class="chip" id="accountChip" hidden>
         <img id="avatar" alt="" referrerpolicy="no-referrer">
         <span id="uname">…</span>
         <span class="tag" id="adminTag" hidden>Admin</span>
-      </div>
-      <a class="btn ghost small" id="adminLink" href="admin.html" hidden>Admin console</a>
-      <button class="ghost small" id="signout">Sign out</button>
-    </header>
+      </span>
+      <a class="btn btn-sm" id="adminLink" href="admin.html" hidden>Admin</a>
+      <button class="btn btn-sm" id="signout" hidden>Sign out</button>
+      <button class="burger" id="burger" aria-label="Menu"><span></span></button>
+    </div>
+  </div>
+</nav>
 
-    <div class="stage">
-      <div class="stage-bar">
-        <span class="dot" id="syncDot"></span>
-        <span id="syncText">Progress saves to your account</span>
-        <span class="spacer" style="flex:1"></span>
-        <button class="ghost small" id="fullscreen">Fullscreen</button>
+<main id="top">
+
+  <!-- ======================= hero ======================= -->
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div>
+        <span class="kicker reveal in"><span class="live"></span> <b>Free</b> · plays in your browser</span>
+        <h1 class="reveal in">aSmall<span class="a">WorldCup</span></h1>
+        <p class="tagline reveal in d1">Tiny players. Massive matches.</p>
+        <p class="blurb reveal in d2">
+          No running, no dribbling buttons. You drag, you let go, and your little ragdoll is
+          <em>flung</em> across the pitch. Hit the ball while you're flying and it goes with you.
+        </p>
+        <div class="hero-actions reveal in d3">
+          <button class="btn btn-primary btn-lg" id="heroPlay">▶ Play now</button>
+          <a class="btn btn-lg" href="#howto">How to play</a>
+        </div>
+        <div class="scoreboard reveal in d4">
+          <div><b>200+</b><span>Cards</span></div>
+          <div><b>4</b><span>Modes</span></div>
+          <div><b>30</b><span>Abilities</span></div>
+          <div><b>0</b><span>Cost</span></div>
+        </div>
       </div>
-      <div class="frame-holder" id="holder">
-        <div class="play-cover" id="cover">
-          <p class="muted">Sound and keyboard work best after you click.</p>
-          <button id="play">▶ Play</button>
-          <p class="muted" id="loadNote" hidden>Loading the game… the first start takes a few seconds.</p>
+
+      <!-- animated pitch -->
+      <div class="pitch reveal in d2" aria-hidden="true">
+        <div class="crowd"></div>
+        <svg class="lines" viewBox="0 0 400 300" preserveAspectRatio="none">
+          <g stroke="rgba(255,255,255,.35)" fill="none" stroke-width="1.4">
+            <rect x="8" y="150" width="384" height="140"/>
+            <line x1="200" y1="150" x2="200" y2="290"/>
+            <circle cx="200" cy="220" r="42"/>
+            <rect x="8" y="188" width="46" height="64"/>
+            <rect x="346" y="188" width="46" height="64"/>
+            <path d="M8 164a14 14 0 0 0 14-14M392 164a14 14 0 0 1-14-14"/>
+          </g>
+        </svg>
+        <div class="scorebug"><i class="t">ENG</i><i class="s">2 – 1</i><i class="t">BRA</i></div>
+
+        <svg class="doll left" width="46" height="62" viewBox="0 0 46 62">
+          <rect x="17" y="2" width="12" height="12" rx="3" fill="#ffd9b8"/>
+          <rect x="14" y="16" width="18" height="22" rx="4" fill="#3ef08a"/>
+          <rect x="6" y="18" width="7" height="16" rx="3" fill="#ffd9b8"/>
+          <rect x="33" y="18" width="7" height="16" rx="3" fill="#ffd9b8"/>
+          <rect x="15" y="39" width="7" height="18" rx="3" fill="#0f2b1a"/>
+          <rect x="24" y="39" width="7" height="18" rx="3" fill="#0f2b1a"/>
+        </svg>
+        <svg class="doll right" width="46" height="62" viewBox="0 0 46 62">
+          <rect x="17" y="2" width="12" height="12" rx="3" fill="#f0c9a0"/>
+          <rect x="14" y="16" width="18" height="22" rx="4" fill="#ff5f52"/>
+          <rect x="6" y="18" width="7" height="16" rx="3" fill="#f0c9a0"/>
+          <rect x="33" y="18" width="7" height="16" rx="3" fill="#f0c9a0"/>
+          <rect x="15" y="39" width="7" height="18" rx="3" fill="#1b1b22"/>
+          <rect x="24" y="39" width="7" height="18" rx="3" fill="#1b1b22"/>
+        </svg>
+
+        <div class="shadow"></div>
+        <div class="ball-wrap">
+          <svg class="ball" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="15" fill="#f3f8f4"/>
+            <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#0b1a10"/>
+            <path d="M16 3.2v2.9M4.6 12.3l2.7 1M27.4 12.3l-2.7 1M9.2 27l1.8-2.4M22.8 27L21 24.6" stroke="#0b1a10" stroke-width="1.6"/>
+          </svg>
         </div>
       </div>
     </div>
+  </section>
 
-    <section class="panel">
-      <h2>How to play</h2>
-      <p class="muted">
-        Click near your player, drag, and release — you're flung the way you dragged, and you keep
-        that momentum. Throw again in mid-air to change direction. Hit the ball while you're moving
-        fast and it goes with you. First to the whistle wins.
-      </p>
-    </section>
+  <!-- ======================= play ======================= -->
+  <section class="section-sm play-wrap" id="play">
+    <div class="wrap">
 
-    <section class="panel">
-      <h2>Patch notes</h2>
-      <div id="notes"><p class="muted">Loading…</p></div>
-    </section>
+      <!-- signed out -->
+      <div class="stage" id="gate" hidden>
+        <div class="state-pane">
+          <h3>Sign in to play</h3>
+          <p>Your cards, coins, squad and season are saved to your Google account, so you can carry on
+             from any computer or iPad. It takes one tap.</p>
+          <button class="btn btn-google btn-lg" id="signin">
+            <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+            Sign in with Google
+          </button>
+        </div>
+      </div>
 
-    <footer class="small">
-      A fan project, not affiliated with A Small World Cup or any club or league.<br>
-      All art, players and cards are original and drawn in code.
-    </footer>
-  </main>
-</div>
+      <!-- banned -->
+      <div class="stage" id="banned" hidden>
+        <div class="state-pane">
+          <h3 style="color:var(--red)">Banned</h3>
+          <p id="banReason">This account can't play at the moment.</p>
+          <button class="btn" id="signout2">Sign out</button>
+        </div>
+      </div>
+
+      <!-- the game -->
+      <div class="stage" id="app" hidden>
+        <div class="stage-bar">
+          <span class="dot" id="syncDot"></span>
+          <span id="syncText">Progress saves to your account</span>
+          <span class="right">
+            <button class="btn btn-sm" id="fullscreen">⛶ Fullscreen</button>
+            <button class="btn btn-sm" id="exitFs" hidden>Exit fullscreen</button>
+          </span>
+        </div>
+        <div class="frame-holder" id="holder">
+          <div class="cover" id="cover">
+            <svg width="54" height="54" viewBox="0 0 32 32" aria-hidden="true" style="animation:spin 6s linear infinite">
+              <circle cx="16" cy="16" r="15" fill="#eef5ef"/>
+              <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/>
+            </svg>
+            <button class="btn btn-primary btn-lg" id="play">▶ Start the game</button>
+            <p>Best with sound on. On an iPad, tap and drag on the pitch to throw.</p>
+            <p id="loadNote" hidden>Loading the game… the first start takes a few seconds.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================= about ======================= -->
+  <section class="section" id="about">
+    <div class="wrap">
+      <div class="grid g-2" style="align-items:center; gap:40px">
+        <div class="reveal">
+          <span class="eyebrow">What is it</span>
+          <h2 class="h2">Football, if the players were made of jelly</h2>
+          <p class="lead">
+            Two little ragdolls, one ball, two goals and a lot of gravity. Every touch comes from
+            momentum — you throw yourself at the ball and hope your head gets there first.
+          </p>
+          <p class="lead">
+            Win matches to earn coins, open packs, build a squad of 200+ original cards and take
+            them through a World Cup, a club season, or a quick game against a mate's favourite player.
+          </p>
+        </div>
+        <div class="grid" style="gap:14px">
+          <div class="card reveal d1">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 18c4-9 14-9 18 0"/><circle cx="7" cy="14" r="2"/><circle cx="17" cy="9" r="2"/></svg></div>
+            <h3>Real physics, no animations</h3>
+            <p>Nothing is scripted. Every goal comes out of the collision, the spin and the bounce.</p>
+          </div>
+          <div class="card gold reveal d2">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M7 18c1.8-2.4 8.2-2.4 10 0"/></svg></div>
+            <h3>Cards worth chasing</h3>
+            <p>Packs, a Star Signing store and abilities that actually change how your player throws.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= features ======================= -->
+  <section class="section" id="features" style="padding-top:0">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:34px">
+        <span class="eyebrow">Gameplay</span>
+        <h2 class="h2">Everything is built from the physics up</h2>
+        <p class="lead">One mechanic, endless chaos. These are the parts that make it stick.</p>
+      </div>
+      <div class="grid g-3">
+        <div class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20L14 10"/><path d="M14 4h6v6"/><path d="M20 4l-6 6"/></svg></div>
+          <h3>Fling to move</h3>
+          <p>Drag from your player and let go. Longer drag, harder throw — in the air too.</p>
+        </div>
+        <div class="card blue reveal d1">
+          <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M8 10h8M9 21l3-6 3 6"/></svg></div>
+          <h3>Trailing ragdoll</h3>
+          <p>Head, arms and legs swing against your movement, then settle when you land.</p>
+        </div>
+        <div class="card gold reveal d2">
+          <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4l3 6-3 4-3-4z"/></svg></div>
+          <h3>A ball with weight</h3>
+          <p>It bounces off posts, spins, curves and carries whatever pace you hit it with.</p>
+        </div>
+        <div class="card violet reveal">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M5 7h14v12H5z"/><path d="M9 7V4h6v3"/><path d="M9 13h6"/></svg></div>
+          <h3>Packs and pulls</h3>
+          <p>Walkout animations, pool odds, pity counters and a store that's actually worth saving for.</p>
+        </div>
+        <div class="card reveal d1">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></div>
+          <h3>30 abilities</h3>
+          <p>Bronze to Diamond. Cannon, Anchor, Poacher, Silky — they change the feel, not just a number.</p>
+        </div>
+        <div class="card blue reveal d2">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 19V5M20 19V5M4 12h16"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <h3>Seasons that matter</h3>
+          <p>Seven knockout rounds, a twelve-game club league, stamina, XP and a table that updates.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= showcase ======================= -->
+  <section class="section" id="shots" style="padding-top:0">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:30px">
+        <span class="eyebrow">Screenshots</span>
+        <h2 class="h2">Straight from the pitch</h2>
+      </div>
+      <div class="shots" id="shotGrid">
+        <figure class="shot wide reveal"><img src="shots/match.png" alt="A match in progress" loading="lazy" width="1280" height="720"><figcaption>Kick-off — two throws from a goal</figcaption></figure>
+        <figure class="shot reveal d1"><img src="shots/card.png" alt="A player card" loading="lazy" width="1280" height="720"><figcaption>Cards, stats and abilities</figcaption></figure>
+        <figure class="shot reveal d1"><img src="shots/pack.png" alt="Opening a pack" loading="lazy" width="1280" height="720"><figcaption>Walkouts</figcaption></figure>
+        <figure class="shot reveal d2"><img src="shots/store.png" alt="The store" loading="lazy" width="1280" height="720"><figcaption>The store</figcaption></figure>
+        <figure class="shot reveal d3"><img src="shots/select.png" alt="Team select" loading="lazy" width="1280" height="720"><figcaption>World Cup bracket</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= modes ======================= -->
+  <section class="section" id="modes" style="padding-top:0">
+    <div class="wrap">
+      <div class="grid g-2" style="gap:40px; align-items:start">
+        <div class="reveal">
+          <span class="eyebrow">Game modes</span>
+          <h2 class="h2">Four ways to play</h2>
+          <p class="lead">Every mode uses the same throw. What changes is what's on the line.</p>
+          <div class="statline reveal d1">
+            <div><span>Nations</span><i></i><b>12</b></div>
+            <div><span>Clubs</span><i></i><b>20</b></div>
+            <div><span>Rounds to the cup</span><i></i><b>7</b></div>
+            <div><span>League games</span><i></i><b>12</b></div>
+            <div><span>Robots in practice</span><i></i><b>4</b></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:12px">
+          <div class="mode reveal"><span class="num">01</span><div><h3>World Cup</h3><p>Seven knockout rounds with twelve nations. Lose once and it's over — win it all on Impossible for bragging rights.</p></div></div>
+          <div class="mode reveal d1"><span class="num">02</span><div><h3>Club Football</h3><p>Pick one of twenty clubs and play a twelve-round season with a live league table.</p></div></div>
+          <div class="mode reveal d2"><span class="num">03</span><div><h3>Freeplay</h3><p>Any card you own against any card you own. Quick match, small coin reward, no stamina.</p></div></div>
+          <div class="mode reveal d3"><span class="num">04</span><div><h3>Practice</h3><p>No clock, no score limit. Spawn up to four robots, set their difficulty, and mess about.</p></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= how to play ======================= -->
+  <section class="section" id="howto" style="padding-top:0">
+    <div class="wrap">
+      <div class="grid g-2" style="gap:46px; align-items:center">
+        <div class="reveal">
+          <span class="eyebrow">How to play</span>
+          <h2 class="h2">Three things to learn</h2>
+          <div class="steps" style="margin-top:28px">
+            <div class="step"><h3>Drag</h3><p>Press anywhere near your player and pull. The arrow shows where you'll fly and how hard.</p></div>
+            <div class="step"><h3>Release</h3><p>Let go and you're thrown. You keep that momentum — throw again mid-air to change direction.</p></div>
+            <div class="step"><h3>Score</h3><p>Meet the ball while you're moving fast. The faster you're going, the further it goes.</p></div>
+          </div>
+        </div>
+        <div class="card reveal d2" style="padding:28px">
+          <h3 style="font-size:16px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold)">Good to know</h3>
+          <ul class="muted" style="margin:14px 0 0; padding-left:18px; line-height:1.9">
+            <li>Mouse, trackpad or touch — iPads work, just drag on the pitch.</li>
+            <li>The pause button sits next to the clock if you have no keyboard.</li>
+            <li>Progress saves by itself; the dot above the game turns green when it has.</li>
+            <li>Fullscreen makes the pitch much easier to read on a small screen.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= patch notes ======================= -->
+  <section class="section" id="news" style="padding-top:0">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:30px">
+        <span class="eyebrow">Latest</span>
+        <h2 class="h2">Patch notes</h2>
+      </div>
+      <div class="grid g-2" id="notes"><p class="muted">Loading…</p></div>
+    </div>
+  </section>
+
+  <!-- ======================= cta ======================= -->
+  <section class="section" style="padding-top:0">
+    <div class="wrap">
+      <div class="cta reveal">
+        <h2>Right, go and score one</h2>
+        <p>Free, no download, saves as you play.</p>
+        <button class="btn btn-primary btn-lg" id="ctaPlay">▶ Play aSmallWorldCup</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap foot-in">
+    <span>aSmallWorldCup — a fan project. Not affiliated with A Small World Cup, any club or any league.</span>
+    <span class="spacer"></span>
+    <span>All art, players and cards are original and drawn in code.</span>
+  </div>
+</footer>
 
 <div class="toast" id="toast"></div>
 <script type="module" src="app.js"></script>
 <script>
-  // if the Firebase modules can't be fetched (offline, blocker, no config) say so instead of a blank page
+  // if the Firebase modules can't be fetched (offline, blocker, no config) say so instead of failing quietly
   setTimeout(function () {
     if (window.__aswcBooted) return;
-    document.body.innerHTML =
-      '<div class="wrap"><section class="panel"><h2>Couldn\'t start</h2><p class="muted">' +
-      'The page could not load the Google sign-in libraries. Check your internet connection, ' +
-      'turn off any script blocker for this site, and reload. If you have just set this up, ' +
-      'make sure firebase-config.js has your project details in it.</p></section></div>';
+    var gate = document.getElementById("gate");
+    if (!gate) return;
+    gate.hidden = false;
+    gate.innerHTML = '<div class="state-pane"><h3>Couldn\'t start sign-in</h3><p>' +
+      'The page could not load the Google sign-in libraries. Check your connection, turn off any ' +
+      'script blocker for this site, and reload. If you have just set this up, make sure ' +
+      'firebase-config.js has your project details in it.</p></div>';
   }, 8000);
 </script>
 </body>
