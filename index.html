@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2026-09-25c">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060b08'/><circle cx='16' cy='16' r='9' fill='%233ef08a'/><path d='M16 9l4 3-1.5 5h-5L12 12z' fill='%23060b08'/></svg>">
 </head>
 <body>
@@ -32,6 +32,8 @@
       <a href="#play">Play</a>
       <a href="#about">About</a>
       <a href="#features">Features</a>
+      <a href="#ranked">Ranked</a>
+      <a href="#chat">Chat</a>
       <a href="#modes">Modes</a>
       <a href="#howto">How to play</a>
       <a href="#news">Patch notes</a>
@@ -146,29 +148,110 @@
         </div>
       </div>
 
-      <!-- the game -->
+      <!-- ready to play -->
       <div class="stage" id="app" hidden>
         <div class="stage-bar">
           <span class="dot" id="syncDot"></span>
           <span id="syncText">Progress saves to your account</span>
-          <span class="right">
-            <button class="btn btn-sm" id="fullscreen">⛶ Fullscreen</button>
-            <button class="btn btn-sm" id="exitFs" hidden>Exit fullscreen</button>
-          </span>
+          <span class="right"><a class="btn btn-sm" href="play.html" id="openGame">Open the game</a></span>
         </div>
-        <div class="frame-holder" id="holder">
+        <div class="launch" id="holder">
           <div class="cover" id="cover">
             <svg width="54" height="54" viewBox="0 0 32 32" aria-hidden="true" style="animation:spin 6s linear infinite">
               <circle cx="16" cy="16" r="15" fill="#eef5ef"/>
               <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/>
             </svg>
-            <button class="btn btn-primary btn-lg" id="play">▶ Start the game</button>
-            <p>Best with sound on. On an iPad, tap and drag on the pitch to throw.</p>
-            <p id="loadNote" hidden>Loading the game… the first start takes a few seconds.</p>
+            <button class="btn btn-primary btn-lg" id="startBtn">▶ Start the game</button>
+            <p>Opens full screen on its own page. Your progress saves as you play.</p>
+            <p id="loadNote" hidden>Loading…</p>
           </div>
+        </div>
+
+        <!-- pick a username -->
+        <div class="poll" id="nameCard" hidden>
+          <span class="eyebrow">One thing first</span>
+          <h3>Pick your username</h3>
+          <p class="muted" style="margin:0 0 14px">Up to 12 characters. Everyone sees it in chat
+             and on the ladder, so keep it clean — anything dodgy gets blocked.</p>
+          <div class="row">
+            <input type="text" id="nameInput" maxlength="12" placeholder="e.g. SirLuck" style="flex:1 1 220px">
+            <button class="btn btn-primary" id="nameSave">Save name</button>
+          </div>
+          <p class="muted" id="nameWhy" style="margin-top:10px"></p>
+        </div>
+
+        <!-- admin poll -->
+        <div class="poll" id="pollCard" hidden>
+          <span class="eyebrow">Question for you</span>
+          <h3 id="pollQ">…</h3>
+          <div class="poll-options" id="pollOptions"></div>
+          <p class="muted" id="pollReward"></p>
         </div>
       </div>
 
+    </div>
+  </section>
+
+  <!-- ======================= ranked ======================= -->
+  <section class="section" id="ranked" style="padding-top:34px">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:30px">
+        <span class="eyebrow">Ranked</span>
+        <h2 class="h2">Climb the ladder</h2>
+        <p class="lead">Every online win is rank points. Six tiers, three divisions each, then Elite —
+           and the top ten players on the board hold the Top 10 badge.</p>
+      </div>
+
+      <div class="grid g-2" style="gap:20px; align-items:start">
+        <div class="card" id="myRankCard">
+          <div class="rank-head">
+            <span id="myBadge"></span>
+            <div>
+              <h3 id="myRankName" style="margin:0">Unranked</h3>
+              <p class="muted" id="myRankLine" style="margin:2px 0 0">Sign in and play an online match</p>
+            </div>
+          </div>
+          <div class="rank-track"><div class="rank-fill" id="myRankFill"></div></div>
+          <p class="muted" id="myRecord" style="margin:12px 0 0"></p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:12px">Tiers</h3>
+          <div class="tier-row" id="tierRow"></div>
+        </div>
+      </div>
+
+      <div class="card reveal" style="margin-top:18px">
+        <div class="row" style="justify-content:space-between; margin-bottom:12px">
+          <h3 style="margin:0">Leaderboard</h3>
+          <button class="btn btn-sm" id="boardRefresh">Refresh</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="players" id="boardTable">
+            <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">RP</th><th class="num">W</th><th class="num">L</th></tr></thead>
+            <tbody id="boardRows"><tr><td colspan="6" class="muted">Sign in to see the ladder.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= chat ======================= -->
+  <section class="section" id="chat" style="padding-top:0">
+    <div class="wrap">
+      <div class="center" style="margin-bottom:26px">
+        <span class="eyebrow">Chat</span>
+        <h2 class="h2">Talk to everyone</h2>
+        <p class="lead">Messages show up in the game too. Be decent — every message has a report
+           button and the filter blocks the obvious stuff.</p>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden">
+        <div class="chat-log" id="chatLog"><p class="muted" style="padding:18px">Sign in to join the chat.</p></div>
+        <div class="chat-send">
+          <input type="text" id="chatInput" maxlength="200" placeholder="Say something…" disabled>
+          <button class="btn btn-primary" id="chatSend" disabled>Send</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -344,11 +427,33 @@
     <span>aSmallWorldCup — a fan project. Not affiliated with A Small World Cup, any club or any league.</span>
     <span class="spacer"></span>
     <span>All art, players and cards are original and drawn in code.</span>
+    <span class="spacer"></span>
+    <span id="buildTag" title="which files the site is running">build 2026-09-25c</span>
   </div>
 </footer>
 
+<div class="report-back" id="reportBox" hidden>
+  <div class="report">
+    <h3 style="margin:0 0 6px">Report this</h3>
+    <p class="muted" id="reportWhat" style="margin:0 0 14px"></p>
+    <label class="field">Why
+      <select id="reportReason">
+        <option value="offensive">Offensive language or hate</option>
+        <option value="bullying">Bullying someone</option>
+        <option value="spam">Spam</option>
+        <option value="cheating">Cheating</option>
+        <option value="other">Something else</option>
+      </select>
+    </label>
+    <div class="row" style="margin-top:16px">
+      <button class="btn btn-danger" id="reportSend">Send report</button>
+      <button class="btn btn-sm" id="reportCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=2026-09-25c"></script>
 <script>
   // if the Firebase modules can't be fetched (offline, blocker, no config) say so instead of failing quietly
   setTimeout(function () {

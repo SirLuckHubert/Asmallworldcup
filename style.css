@@ -4,6 +4,8 @@
    ========================================================================= */
 
 :root {
+  --build: "2026-09-25c";        /* check.html and app.js read this */
+
   /* surfaces */
   --bg: #060b08;
   --bg-2: #08120c;
@@ -179,7 +181,7 @@ h1, h2, h3, .display {
 .btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.3); background: var(--panel-2); color: var(--btn-fg); }
 .btn:active { transform: translateY(0); }
 .btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
-.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .btn-primary {
   --btn-bg: linear-gradient(135deg, var(--lime), var(--lime-dim));
@@ -429,6 +431,38 @@ section { position: relative; }
 }
 .frame-holder iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 
+/* the launch panel that replaced the embedded game */
+.launch {
+  position: relative;
+  min-height: 300px;
+  display: grid;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(30, 110, 60, .5), rgba(3, 9, 5, .96) 70%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 56px, transparent 56px 112px);
+}
+.launch .cover { position: static; padding: 44px 26px; background: none; }
+
+/* admin poll */
+.poll { padding: 22px 24px 24px; border-top: 1px solid var(--edge); background: rgba(255,255,255,.03); }
+.poll h3 { font-size: 19px; margin: 6px 0 16px; }
+.poll-options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.poll-options button {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  justify-content: space-between;
+}
+.poll-options button .bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: rgba(62, 240, 138, .16);
+  transition: width .5s cubic-bezier(.2,.8,.3,1);
+  pointer-events: none;
+}
+.poll-options button.mine { border-color: var(--lime); color: var(--lime); }
+.poll-options button span, .poll-options button .pct { position: relative; z-index: 1; }
+.poll-options .pct { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.poll .muted { margin: 14px 0 0; }
+
 .cover {
   position: absolute;
   inset: 0;
@@ -511,6 +545,68 @@ body.fake-fs .frame-holder { flex: 1 1 auto; aspect-ratio: auto; height: auto; }
 }
 .mode h3 { font-size: 16.5px; margin-bottom: 4px; }
 .mode p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------- ranked ---------- */
+.rank-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.rank-head svg { filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+.rank-track { height: 10px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+.rank-fill { height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, var(--lime), var(--gold)); transition: width .6s cubic-bezier(.2,.8,.3,1); }
+
+.tier-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+.tier-row div { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.tier-row svg { display: block; margin: 0 auto 6px; }
+.tier-row div.on { color: var(--text); font-weight: 800; }
+
+.rank-badge { display: inline-flex; align-items: center; gap: 7px; }
+.rank-badge svg { flex: none; }
+.rank-badge span { font-size: 13px; }
+
+/* ---------- chat ---------- */
+.chat-log {
+  height: 340px;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(3, 9, 5, .5);
+}
+.chat-msg { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; line-height: 1.5; }
+.chat-msg .who { font-weight: 800; color: var(--lime); flex: none; }
+.chat-msg .who.mine { color: var(--gold); }
+.chat-msg .body { color: #dceee2; word-break: break-word; flex: 1 1 auto; }
+.chat-msg time { font-size: 11px; color: var(--faint); flex: none; }
+.chat-msg .flag {
+  opacity: 0; flex: none;
+  background: none; border: 0; color: var(--muted); cursor: pointer;
+  font-size: 12px; padding: 2px 6px; border-radius: 6px;
+  transition: opacity .15s, color .15s, background .15s;
+}
+.chat-msg:hover .flag, .chat-msg .flag:focus-visible { opacity: 1; }
+.chat-msg .flag:hover { color: var(--red); background: rgba(255,95,82,.12); }
+/* no hover on a touch screen: the report button has to be there all the time */
+@media (hover: none) {
+  .chat-msg .flag { opacity: .75; }
+}
+.chat-send { display: flex; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--edge); }
+.chat-send input { flex: 1 1 auto; }
+
+/* ---------- report dialog ---------- */
+.report-back {
+  position: fixed; inset: 0; z-index: 120;
+  display: grid; place-content: center; padding: 20px;
+  background: rgba(3, 8, 5, .75);
+  backdrop-filter: blur(3px);
+}
+.report {
+  width: min(460px, 92vw);
+  background: #0b1a11;
+  border: 1px solid var(--edge-2);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.report select { width: 100%; }
 
 /* broadcast-style stat rows */
 .statline { margin-top: 26px; border-top: 1px solid var(--edge); }
@@ -650,6 +746,13 @@ input:focus, select:focus, textarea:focus {
 textarea { width: 100%; min-height: 240px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.5; }
 label.field { display: flex; flex-direction: column; gap: 6px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 800; }
 
+/* poll results in the admin console */
+.result { margin-bottom: 12px; }
+.result .top { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; }
+.result .top b { font-weight: 700; }
+.result .track { height: 10px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+.result .fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--lime), var(--lime-dim)); transition: width .5s; }
+
 /* ============================ responsive ============================ */
 @media (max-width: 1000px) {
   .hero-in { grid-template-columns: 1fr; gap: 30px; }
@@ -657,6 +760,43 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-size: 11px; 
   .g-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .shots { grid-template-columns: repeat(2, 1fr); }
   .shot.wide { grid-column: span 2; grid-row: span 1; aspect-ratio: 16 / 9; }
+}
+
+/* the nav has to survive an admin account (chip + Admin + Sign out) on a small screen */
+@media (max-width: 980px) {
+  .nav-in { gap: 10px; }
+  .brand { min-width: 0; }
+  .brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-right { gap: 7px; }
+  .nav-right .btn { padding: 8px 11px; font-size: 12.5px; }
+  .nav-links {
+    position: absolute;
+    top: 66px; left: 0; right: 0;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 16px 16px;
+    background: rgba(6, 12, 8, .98);
+    border-bottom: 1px solid var(--edge);
+    display: none;
+  }
+  .nav-links.open { display: flex; }
+  .nav-links a { padding: 11px 12px; font-size: 15px; }
+  .burger {
+    display: inline-grid;
+    place-content: center;
+    width: 40px; height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--edge);
+    background: var(--panel);
+    cursor: pointer;
+  }
+  .burger span, .burger span::before, .burger span::after {
+    content: ""; display: block; width: 17px; height: 2px; background: var(--text); border-radius: 2px; position: relative;
+  }
+  .burger span::before { position: absolute; top: -6px; }
+  .burger span::after { position: absolute; top: 6px; }
+  .chip span { display: none; }
+  .chip { padding: 4px; }
 }
 
 @media (max-width: 760px) {

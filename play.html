@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>aSmallWorldCup</title>
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060b08'/><circle cx='16' cy='16' r='9' fill='%233ef08a'/><path d='M16 9l4 3-1.5 5h-5L12 12z' fill='%23060b08'/></svg>">
+<style>
+  /* Deliberately standalone: the game owns the whole window, no site chrome. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%; width: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: "Archivo", "Segoe UI", system-ui, sans-serif;
+    color: #eef5ef;
+    overscroll-behavior: none;
+  }
+  #stage { position: fixed; inset: 0; background: #000; touch-action: none; }
+  #stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+
+  /* a small bar that fades out of the way while you play */
+  #hud {
+    position: fixed;
+    top: 0; right: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    background: linear-gradient(180deg, rgba(4, 10, 6, .82), rgba(4, 10, 6, 0));
+    font-size: 12.5px;
+    color: #9db3a4;
+    z-index: 5;
+    opacity: .28;
+    transition: opacity .25s;
+  }
+  #hud:hover, #hud.show { opacity: 1; }
+  #hud .dot { width: 8px; height: 8px; border-radius: 50%; background: #6c8274; }
+  #hud .dot.on { background: #3ef08a; box-shadow: 0 0 9px rgba(62,240,138,.8); }
+  #hud .dot.err { background: #ff5f52; }
+  #hud a, #hud button {
+    font: inherit; font-weight: 700;
+    color: #eef5ef; background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 8px; padding: 6px 11px; cursor: pointer; text-decoration: none;
+  }
+  #hud a:hover, #hud button:hover { background: rgba(255,255,255,.16); }
+
+  /* sign-in / banned / loading, centred over the black */
+  .pane {
+    position: fixed; inset: 0; z-index: 10;
+    display: grid; place-content: center; justify-items: center; gap: 16px;
+    text-align: center; padding: 26px;
+    background: radial-gradient(circle at 50% 42%, #14532c, #030905 70%);
+  }
+  .pane h1 { font-size: clamp(24px, 4vw, 38px); margin: 0; letter-spacing: -.02em; }
+  .pane p { color: #9db3a4; max-width: 46ch; margin: 0; line-height: 1.6; }
+  .pane .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .pane button, .pane a.btn {
+    font: inherit; font-weight: 800; font-size: 15px;
+    color: #05210f; background: linear-gradient(135deg, #3ef08a, #21c96c);
+    border: 0; border-radius: 12px; padding: 13px 22px; cursor: pointer; text-decoration: none;
+  }
+  .pane a.ghost, .pane button.ghost {
+    background: transparent; color: #eef5ef; border: 1px solid rgba(255,255,255,.2);
+  }
+  .pane .google { background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; gap: 10px; }
+  .pane .google svg { width: 18px; height: 18px; }
+  .spin { width: 46px; height: 46px; animation: spin 5s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="stage"></div>
+
+<div id="hud">
+  <span class="dot" id="syncDot"></span>
+  <span id="syncText">saving to your account</span>
+  <button id="fs" title="Fullscreen">⛶</button>
+  <a href="index.html" id="exit">Exit</a>
+</div>
+
+<!-- signed out -->
+<div class="pane" id="gate" hidden>
+  <svg class="spin" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#eef5ef"/><path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/></svg>
+  <h1>Sign in to play</h1>
+  <p>Your cards, coins and season are saved to your Google account, so you can pick up on any computer or iPad.</p>
+  <div class="row">
+    <button class="google" id="signin">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <a class="btn ghost" href="index.html">Back to the site</a>
+  </div>
+</div>
+
+<!-- banned -->
+<div class="pane" id="banned" hidden>
+  <h1 style="color:#ff5f52">Banned</h1>
+  <p id="banReason">This account can't play at the moment.</p>
+  <a class="btn ghost" href="index.html">Back to the site</a>
+</div>
+
+<!-- loading / problem -->
+<div class="pane" id="loading">
+  <svg class="spin" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#eef5ef"/><path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/></svg>
+  <h1 id="loadTitle">Loading the pitch…</h1>
+  <p id="loadNote">The first start takes a few seconds while the game downloads.</p>
+  <div class="row"><a class="btn ghost" href="index.html">Back to the site</a></div>
+</div>
+
+<script type="module" src="play.js?v=2026-09-25c"></script>
+</body>
+</html>

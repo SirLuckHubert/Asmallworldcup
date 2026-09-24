@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2026-09-25c">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060b08'/><rect x='9' y='12' width='14' height='10' rx='2' fill='%23a06bff'/></svg>">
 </head>
 <body>
@@ -81,7 +81,19 @@
       <div class="row" style="margin-bottom:18px">
         <button class="btn btn-sm btn-danger" id="ban">Ban</button>
         <button class="btn btn-sm" id="unban" hidden>Unban</button>
+        <button class="btn btn-sm btn-danger" id="mute">Mute chat</button>
+        <button class="btn btn-sm" id="unmute" hidden>Unmute</button>
         <input type="text" id="banReason" placeholder="Reason (they see this)" style="min-width:240px; flex:1 1 240px">
+      </div>
+
+      <div class="row" style="align-items:flex-end; margin-bottom:18px">
+        <label class="field" style="flex:1 1 200px">Username
+          <input type="text" id="editName" maxlength="12" placeholder="12 characters max">
+        </label>
+        <button class="btn btn-sm" id="saveName">Set name</button>
+        <label class="field">Rank points <input type="number" id="editRp" value="150" style="width:130px"></label>
+        <button class="btn btn-sm" id="saveRp">Set RP</button>
+        <span class="muted" id="rankNow"></span>
       </div>
 
       <div class="row" style="margin-bottom:18px; align-items:flex-end">
@@ -108,6 +120,56 @@
     </div>
 
     <div class="panel">
+      <h2>Reports <span class="muted" id="reportCount" style="text-transform:none; letter-spacing:0; font-weight:500"></span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-sm" id="reportsRefresh">Refresh</button>
+        <label class="muted" style="display:flex; align-items:center; gap:7px">
+          <input type="checkbox" id="showDone"> show handled
+        </label>
+      </div>
+      <div id="reportList" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Chat</h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-sm" id="chatRefresh">Refresh</button>
+        <span class="muted">Delete anything that shouldn't be there. Muting is on the player below.</span>
+      </div>
+      <div id="chatAdmin" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Poll <span class="muted" id="pollState" style="text-transform:none; letter-spacing:0; font-weight:500"></span></h2>
+      <p class="muted" style="margin:0 0 16px">Ask the players something. Everyone who answers gets the reward
+        paid straight into their save. One answer each.</p>
+
+      <label class="field" style="margin-bottom:12px">Question
+        <input type="text" id="pollQuestion" placeholder="Which card should I add next?">
+      </label>
+      <div class="grid" style="display:grid; gap:10px; grid-template-columns:repeat(2, minmax(0,1fr)); margin-bottom:12px">
+        <label class="field">Answer 1 <input type="text" id="pollOpt0" placeholder="Haaland"></label>
+        <label class="field">Answer 2 <input type="text" id="pollOpt1" placeholder="Yamal"></label>
+        <label class="field">Answer 3 <input type="text" id="pollOpt2" placeholder="(optional)"></label>
+        <label class="field">Answer 4 <input type="text" id="pollOpt3" placeholder="(optional)"></label>
+      </div>
+      <div class="row" style="align-items:flex-end; margin-bottom:14px">
+        <label class="field">Reward <input type="number" id="pollReward" value="300" style="width:120px"></label>
+        <label class="field">Paid in
+          <select id="pollCurrency">
+            <option value="sp">Star Points</option>
+            <option value="coins">Coins</option>
+          </select>
+        </label>
+        <button class="btn btn-primary btn-sm" id="pollPost">Post poll</button>
+        <button class="btn btn-sm" id="pollClose" hidden>Close poll</button>
+        <button class="btn btn-sm" id="pollRefresh">Refresh results</button>
+      </div>
+
+      <div id="pollResults" class="muted">No poll posted yet.</div>
+    </div>
+
+    <div class="panel">
       <h2>Patch notes</h2>
       <div class="row" style="align-items:flex-end; margin-bottom:12px">
         <label class="field">Date <input type="text" id="noteDate" style="width:150px"></label>
@@ -127,6 +189,6 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="admin.js"></script>
+<script type="module" src="admin.js?v=2026-09-25c"></script>
 </body>
 </html>

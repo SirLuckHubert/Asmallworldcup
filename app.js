@@ -6,14 +6,29 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
+  addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-25c";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-25c";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-25c";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
 
 window.__aswcBooted = true;            // the watchdog in index.html checks this
+
+// The stylesheet carries a --build marker. If it is missing, the browser (or GitHub's
+// CDN) is serving an old style.css, which leaves the page half-styled.
+const CSS_BUILD = getComputedStyle(document.documentElement).getPropertyValue("--build").trim();
+if (!CSS_BUILD) {
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:999;padding:10px 14px;" +
+    "background:#ffd23f;color:#1d1400;font:600 14px/1.4 system-ui,sans-serif;text-align:center";
+  bar.textContent = "This page loaded an old or missing style.css — press Ctrl+Shift+R " +
+    "(Cmd+Shift+R on a Mac). If it keeps happening, re-upload style.css to the repo.";
+  document.addEventListener("DOMContentLoaded", () => document.body.prepend(bar));
+}
 
 const $ = (id) => document.getElementById(id);
 const gate = $("gate"), app = $("app"), bannedView = $("banned");
@@ -32,6 +47,13 @@ function revealWatch(el) {
 }
 
 const DEFAULT_NOTES = [
+  {
+    date: "2026-09-25",
+    title: "Online, ranked, chat",
+    body: "RANKED ONLINE is in the Play menu: you're matched with whoever else is looking, and the match runs straight between the two browsers.\n" +
+          "Six tiers with three divisions each, Elite above them and a Top 10 badge for the ten best on the ladder. Win +28, draw +4, loss -18, plus 2 a goal.\n" +
+          "Pick a username (12 characters), chat here or from inside a match with the quick messages, and report anything out of order — the filter catches the obvious stuff, the report button gets the rest.",
+  },
   {
     date: "2026-09-24",
     title: "Smoother in the browser",
@@ -73,7 +95,7 @@ function setSignedIn(user, isAdmin) {
 }
 
 // ---------------------------------------------------------------- firebase
-let auth, db, playerRef = null;
+let auth, db, playerRef = null, me = null, topTen = [], ladderSize = 0;
 
 function setupNeeded(why) {
   show(gate);
@@ -157,9 +179,22 @@ if (auth) onAuthStateChanged(auth, async (user) => {
   if (typeof cloud === "string" && cloud.length > 2) {
     try { localStorage.setItem(SAVE_KEY, cloud); } catch (err) { /* private mode */ }
   }
+  me = {
+    uid: user.uid,
+    username: snap.exists() ? (snap.data().username || "") : "",
+    rp: snap.exists() && typeof snap.data().rp === "number" ? snap.data().rp : START_RP,
+    wins: (snap.exists() && snap.data().wins) || 0,
+    losses: (snap.exists() && snap.data().losses) || 0,
+    muted: !!(snap.exists() && snap.data().muted),
+  };
   show(app);
   watchBan();
   watchNotes();
+  watchPoll();
+  showUsernameCard();
+  watchChat();
+  loadBoard();
+  drawTiers();
 });
 
 // a ban lands while you're playing: pull the game straight away
@@ -167,127 +202,72 @@ let banWatch = null;
 function watchBan() {
   if (banWatch) banWatch();
   banWatch = onSnapshot(playerRef, (s) => {
-    if (s.exists() && s.data().banned === true) {
+    if (!s.exists()) return;
+    const d = s.data() || {};
+    if (d.banned === true) {
       stopGame();
-      $("banReason").textContent = s.data().banReason || "This account can't play at the moment.";
+      $("banReason").textContent = d.banReason || "This account can't play at the moment.";
       show(bannedView);
+      return;
+    }
+    // a ranked match on the game page, or the admin, can change any of this while you sit here
+    if (me) {
+      const moved = (typeof d.rp === "number" && d.rp !== me.rp) || (d.username || "") !== me.username;
+      me.rp = typeof d.rp === "number" ? d.rp : me.rp;
+      me.wins = d.wins || 0;
+      me.losses = d.losses || 0;
+      me.muted = !!d.muted;
+      if (d.username) me.username = d.username;
+      showUsernameCard();
+      if (moved) loadBoard(); else drawMyRank();
     }
   }, () => {});
 }
 
 // ---------------------------------------------------------------- the game
-let frame = null, pending = null, saveTimer = null, lastSent = "";
+// The game runs on play.html, filling the whole window. This page just sends you there.
+let pending = null, saveTimer = null, lastSent = "";
 
-function startGame() {
-  if (frame) return;
+async function startGame() {
+  $("startBtn").disabled = true;
   $("loadNote").hidden = false;
-  $("play").disabled = true;
-  frame = document.createElement("iframe");
-  frame.title = "aSmallWorldCup";
-  frame.allow = "autoplay; fullscreen; gamepad; xr-spatial-tracking";
-  frame.setAttribute("allowfullscreen", "");            // older Safari / iPad
-  frame.setAttribute("webkitallowfullscreen", "");
-  frame.src = GAME_PATH;
-  frame.onload = () => { $("cover").hidden = true; };
-  frame.onerror = () => toast("Game files missing — run build_web.sh", 5000);
-  $("holder").appendChild(frame);
-  setTimeout(() => {
-    if (frame && !$("cover").hidden) $("loadNote").textContent = "Still loading… (big download the first time)";
-  }, 9000);
+  $("loadNote").textContent = "Opening the game…";
+  try {                                   // don't send anyone to a blank page
+    const probe = await fetch(GAME_PATH, { method: "HEAD", cache: "no-store" });
+    if (!probe.ok) return gameMissing(probe.status);
+  } catch (err) {
+    return gameMissing(err.message || "network error");
+  }
+  location.href = "play.html";
+}
+
+function gameMissing(why) {
+  $("startBtn").disabled = false;
+  $("loadNote").hidden = false;
+  $("loadNote").innerHTML = "Couldn't load <b>" + new URL(GAME_PATH, location.href).pathname +
+    "</b> (" + why + ").<br>Upload the pygbag build so that folder sits next to this page, " +
+    "or change GAME_PATH in firebase-config.js.";
+  toast("Game files not found — see the message on the pitch", 5000);
 }
 
 function stopGame() {
   flushSave();
-  if (frame) { frame.remove(); frame = null; }
-  if ($("cover")) $("cover").hidden = false;
-  if ($("play")) $("play").disabled = false;
+  if ($("startBtn")) $("startBtn").disabled = false;
   if ($("loadNote")) $("loadNote").hidden = true;
-  leaveFullscreen();
 }
 
-$("play").onclick = startGame;
-
-// Play Now anywhere on the page: scroll to the game, sign in first if needed
-function playNow() {
-  const target = app.hidden ? (bannedView.hidden ? gate : bannedView) : app;
-  target.scrollIntoView({ behavior: "smooth", block: "center" });
-  if (!app.hidden) startGame();
-}
+$("startBtn").onclick = startGame;
 $("heroPlay").onclick = playNow;
 $("ctaPlay").onclick = playNow;
 
-// ---------------------------------------------------------------- fullscreen
-// pygame's own fullscreen does nothing in pygbag, so the page does it. iPad Safari has no
-// element fullscreen at all, so there is a CSS stand-in that fills the window.
-const stage = () => app;
-
-function fsElement() {
-  return document.fullscreenElement || document.webkitFullscreenElement || null;
+function playNow() {
+  if (!app.hidden) return startGame();                  // signed in: straight to the pitch
+  const target = bannedView.hidden ? gate : bannedView;
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function enterFullscreen() {
-  const el = stage();
-  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen
-           || el.mozRequestFullScreen || el.msRequestFullscreen;
-  if (req) {
-    try {
-      const out = req.call(el);
-      if (out && out.catch) out.catch(() => fakeFullscreen(true));
-      return;
-    } catch (err) { /* falls through to the stand-in */ }
-  }
-  fakeFullscreen(true);
-}
-
-function leaveFullscreen() {
-  if (fsElement()) {
-    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen;
-    if (exit) { try { exit.call(document); } catch (err) { /* ignore */ } }
-  }
-  fakeFullscreen(false);
-}
-
-function fakeFullscreen(on) {
-  document.body.classList.toggle("fake-fs", on);
-  $("exitFs").hidden = !on;
-  $("fullscreen").hidden = on;
-}
-
-$("fullscreen").onclick = () => (fsElement() || document.body.classList.contains("fake-fs"))
-  ? leaveFullscreen() : enterFullscreen();
-$("exitFs").onclick = leaveFullscreen;
-
-document.addEventListener("fullscreenchange", syncFsButtons);
-document.addEventListener("webkitfullscreenchange", syncFsButtons);
-function syncFsButtons() {
-  const on = !!fsElement();
-  $("exitFs").hidden = !on;
-  $("fullscreen").hidden = on;
-}
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && document.body.classList.contains("fake-fs")) leaveFullscreen();
-});
-
-// ---------------------------------------------------------------- save sync
-// the game calls window.aswcSave(text) inside the frame; bridge.js posts it up here
-window.addEventListener("message", (e) => {
-  if (e.origin !== location.origin || !e.data) return;
-  if (e.data.type === "aswc-ready") {
-    let text = null;
-    try { text = localStorage.getItem(SAVE_KEY); } catch (err) { /* ignore */ }
-    if (text && frame) frame.contentWindow.postMessage({ type: "aswc-load", save: text }, location.origin);
-  } else if (e.data.type === "aswc-save" && typeof e.data.save === "string") {
-    queueSave(e.data.save);
-  }
-});
-
-function queueSave(text) {
-  pending = text;
-  setSync("saving");
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE);
-}
-
+// ---------------------------------------------------------------- saves
+// The game itself syncs from play.html; this page only writes when it hands out a poll reward.
 async function flushSave() {
   clearTimeout(saveTimer);
   if (!pending || !playerRef || pending === lastSent) return;
@@ -299,17 +279,9 @@ async function flushSave() {
     setSync("ok");
   } catch (err) {
     setSync("error");
-    if (err.code === "permission-denied") {
-      stopGame();
-      show(bannedView);
-    } else {
-      pending = text;                       // try again on the next save
-    }
+    pending = text;
   }
 }
-
-window.addEventListener("beforeunload", flushSave);
-setInterval(flushSave, 30000);              // slow heartbeat while you play
 
 function setSync(state) {
   const dot = $("syncDot"), text = $("syncText");
@@ -319,6 +291,349 @@ function setSync(state) {
     : state === "ok" ? "Progress saved to your account"
     : state === "error" ? "Couldn't save — check your connection"
     : "Progress saves to your account";
+}
+
+// ---------------------------------------------------------------- username
+function showUsernameCard() {
+  const card = $("nameCard");
+  const needs = !me.username;
+  card.hidden = !needs;
+  $("startBtn").disabled = needs;
+  if (needs) {
+    $("nameWhy").textContent = "You need a name before you can play.";
+    $("nameInput").value = "";
+  }
+}
+
+$("nameSave").onclick = saveUsername;
+$("nameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") saveUsername(); });
+
+async function saveUsername() {
+  const wanted = tidyUsername($("nameInput").value);
+  const verdict = checkText(wanted, { username: true });
+  if (!verdict.ok) {
+    $("nameWhy").textContent = verdict.why;
+    if (verdict.level === "hate") {
+      fileReport({ about: me.uid, aboutName: wanted, text: wanted, reason: "username", auto: true });
+    }
+    return;
+  }
+  const key = usernameKey(wanted);
+  $("nameSave").disabled = true;
+  try {
+    const taken = await getDoc(doc(db, "usernames", key));
+    if (taken.exists() && taken.data().uid !== me.uid) {
+      $("nameWhy").textContent = "Someone already has that one.";
+      $("nameSave").disabled = false;
+      return;
+    }
+    await setDoc(doc(db, "usernames", key), { uid: me.uid, username: wanted, at: serverTimestamp() });
+    await setDoc(playerRef, { username: wanted, usernameKey: key, rp: me.rp, updatedAt: serverTimestamp() },
+                 { merge: true });
+    me.username = wanted;
+    $("nameWhy").textContent = "";
+    toast("You're " + wanted + " from now on");
+    showUsernameCard();
+    drawMyRank();
+    loadBoard();
+  } catch (err) {
+    $("nameWhy").textContent = "Couldn't save that: " + (err.code || err);
+  }
+  $("nameSave").disabled = false;
+}
+
+// ---------------------------------------------------------------- ranked
+function drawTiers() {
+  const row = $("tierRow");
+  if (!row) return;
+  row.textContent = "";
+  const mine = rankOf(me ? me.rp : 0, isTopTen());
+  for (const t of TIERS.concat([TOP10])) {
+    const cell = document.createElement("div");
+    const fake = t.key === "top10" ? rankOf(9999, true) : rankOf(t.at + 1);
+    cell.innerHTML = badgeSvg(fake, 34) + t.name;
+    if (t.key === mine.key) cell.className = "on";
+    row.appendChild(cell);
+  }
+}
+
+function isTopTen() {
+  return !!me && holdsTop10(topTen.indexOf(me.uid), me.rp, ladderSize);
+}
+
+function drawMyRank() {
+  if (!me) return;
+  // Top 10 sits on top of your tier rather than replacing it, so both are shown
+  const tier = rankOf(me.rp);
+  const top = isTopTen();
+  $("myBadge").innerHTML = badgeSvg(rankOf(me.rp, top), 56);
+  $("myRankName").textContent = top ? "Top 10" : tier.label;
+  $("myRankLine").textContent = (me.username ? me.username + " · " : "") + me.rp + " RP"
+    + (top ? " · " + tier.label : "");
+  $("myRankFill").style.width = Math.round(tier.progress * 100) + "%";
+  $("myRecord").textContent = (me.wins || 0) + "W · " + (me.losses || 0) + "L"
+    + (tier.next ? "  ·  " + Math.max(0, tier.next - me.rp) + " RP to the next step" : "");
+}
+
+async function loadBoard() {
+  const rows = $("boardRows");
+  try {
+    const snap = await getDocs(query(collection(db, "players"), orderBy("rp", "desc"), limit(25)));
+    const list = snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((p) => p.username);
+    topTen = list.slice(0, TOP10_MIN).map((p) => p.uid);
+    ladderSize = list.length;
+    rows.textContent = "";
+    if (!list.length) {
+      rows.innerHTML = '<tr><td colspan="6" class="muted">Nobody has played a ranked match yet.</td></tr>';
+    }
+    list.forEach((p, i) => {
+      const top = holdsTop10(i, p.rp, list.length);
+      const tier = rankOf(p.rp || 0);
+      const rank = rankOf(p.rp || 0, top);
+      rank.label = top ? "Top 10 · " + tier.label : tier.label;
+      const tr = document.createElement("tr");
+      if (p.uid === me.uid) tr.style.background = "rgba(62,240,138,.07)";
+      const cells = [String(i + 1), p.username, "", String(Math.round(p.rp || 0)),
+                     String(p.wins || 0), String(p.losses || 0)];
+      cells.forEach((text, c) => {
+        const td = document.createElement("td");
+        if (c >= 3) td.className = "num";
+        if (c === 2) {
+          td.innerHTML = '<span class="rank-badge">' + badgeSvg(rank, 22) + "<span>" + rank.label + "</span></span>";
+        } else {
+          td.textContent = text;
+        }
+        tr.appendChild(td);
+      });
+      rows.appendChild(tr);
+    });
+  } catch (err) {
+    rows.innerHTML = '<tr><td colspan="6" class="muted">Couldn\'t read the ladder: ' + (err.code || err) + "</td></tr>";
+  }
+  drawMyRank();
+  drawTiers();
+}
+$("boardRefresh").onclick = loadBoard;
+
+// ---------------------------------------------------------------- chat
+let chatStop = null;
+
+function watchChat() {
+  $("chatInput").disabled = false;
+  $("chatSend").disabled = false;
+  if (chatStop) chatStop();
+  const q = query(collection(db, "chat"), orderBy("at", "desc"), limit(60));
+  chatStop = onSnapshot(q, (snap) => {
+    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse();
+    drawChat(rows);
+  }, (err) => {
+    $("chatLog").innerHTML = '<p class="muted" style="padding:18px">Chat is unavailable: ' + (err.code || err) + "</p>";
+  });
+}
+
+function drawChat(rows) {
+  const box = $("chatLog");
+  const stick = box.scrollTop + box.clientHeight > box.scrollHeight - 60;
+  box.textContent = "";
+  if (!rows.length) {
+    box.innerHTML = '<p class="muted" style="padding:18px">Nothing yet — say hello.</p>';
+    return;
+  }
+  for (const m of rows) {
+    const line = document.createElement("div");
+    line.className = "chat-msg";
+    const who = document.createElement("span");
+    who.className = "who" + (m.uid === me.uid ? " mine" : "");
+    who.textContent = m.username || "player";
+    const body = document.createElement("span");
+    body.className = "body";
+    body.textContent = m.text || "";
+    const when = document.createElement("time");
+    when.textContent = m.at && m.at.toDate ? m.at.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+    const flag = document.createElement("button");
+    flag.className = "flag";
+    flag.title = "Report this message";
+    flag.textContent = "⚑ report";
+    flag.onclick = () => openReport({ about: m.uid, aboutName: m.username, text: m.text, msgId: m.id });
+    line.append(who, body, when, flag);
+    box.appendChild(line);
+  }
+  if (stick) box.scrollTop = box.scrollHeight;
+}
+
+$("chatSend").onclick = sendChat;
+$("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+
+async function sendChat() {
+  const text = $("chatInput").value.trim();
+  if (!text || !me) return;
+  if (!me.username) { toast("Pick a username first"); return; }
+  if (me.muted) { toast("You're muted — the admin turned your chat off", 4000); return; }
+  const verdict = checkText(text);
+  if (!verdict.ok) {
+    toast(verdict.why, 4000);
+    if (verdict.level === "hate") {
+      fileReport({ about: me.uid, aboutName: me.username, text, reason: "auto-blocked", auto: true });
+    }
+    return;
+  }
+  $("chatInput").value = "";
+  try {
+    await addDoc(collection(db, "chat"), {
+      uid: me.uid, username: me.username, text: text.slice(0, 200), at: serverTimestamp(),
+    });
+  } catch (err) {
+    toast(err.code === "permission-denied" ? "You're muted" : "Message didn't send", 4000);
+  }
+}
+
+// ---------------------------------------------------------------- reports
+let reporting = null;
+
+function openReport(what) {
+  reporting = what;
+  $("reportWhat").textContent = (what.aboutName || "player") + ": " + (what.text || "").slice(0, 120);
+  $("reportBox").hidden = false;
+}
+$("reportCancel").onclick = () => { $("reportBox").hidden = true; reporting = null; };
+$("reportSend").onclick = async () => {
+  if (!reporting) return;
+  await fileReport({ ...reporting, reason: $("reportReason").value });
+  $("reportBox").hidden = true;
+  reporting = null;
+  toast("Reported — thanks, the admin will look at it");
+};
+
+async function fileReport(what) {
+  if (!me) return;
+  try {
+    await addDoc(collection(db, "reports"), {
+      by: me.uid, byName: me.username || "player",
+      about: what.about || "", aboutName: what.aboutName || "",
+      text: (what.text || "").slice(0, 200),
+      reason: what.reason || "other",
+      msgId: what.msgId || "",
+      at: serverTimestamp(), done: false,
+    });
+  } catch (err) {
+    if (!what.auto) toast("Couldn't send that report: " + (err.code || err), 4000);
+  }
+}
+
+// ---------------------------------------------------------------- the admin's poll
+// site/poll holds the question; each answer is a document in polls/<id>/votes/<uid>, and the
+// reward goes straight into the player's save.
+let poll = null, myVote = null, pollBusy = false;
+
+function watchPoll() {
+  onSnapshot(doc(db, "site", "poll"), async (snap) => {
+    poll = snap.exists() ? snap.data() : null;
+    if (!poll || !poll.open || !poll.id || !Array.isArray(poll.options) || !poll.options.length) {
+      $("pollCard").hidden = true;
+      return;
+    }
+    myVote = null;
+    try {
+      const mine = await getDoc(doc(db, "polls", poll.id, "votes", auth.currentUser.uid));
+      if (mine.exists()) myVote = mine.data().choice;
+    } catch (err) { /* first time, or offline */ }
+    drawPoll();
+  }, () => { $("pollCard").hidden = true; });
+}
+
+function rewardWords(p) {
+  const n = Number(p.reward || 0);
+  if (!n) return "";
+  return n + " " + (p.currency === "coins" ? "coins" : "Star Points");
+}
+
+function drawPoll(counts) {
+  const card = $("pollCard");
+  card.hidden = false;
+  $("pollQ").textContent = poll.question || "What do you think?";
+  const box = $("pollOptions");
+  box.textContent = "";
+  const total = counts ? counts.reduce((a, b) => a + b, 0) : 0;
+  poll.options.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.className = "btn" + (myVote === i ? " mine" : "");
+    const label = document.createElement("span");
+    label.textContent = text;
+    b.appendChild(label);
+    if (counts) {
+      const pct = total ? Math.round((counts[i] / total) * 100) : 0;
+      const bar = document.createElement("i");
+      bar.className = "bar";
+      bar.style.width = pct + "%";
+      const num = document.createElement("span");
+      num.className = "pct";
+      num.textContent = pct + "%";
+      b.append(bar, num);
+    }
+    if (myVote === null) b.onclick = () => answerPoll(i);
+    else b.disabled = true;
+    box.appendChild(b);
+  });
+  const reward = rewardWords(poll);
+  $("pollReward").textContent = myVote === null
+    ? (reward ? "Answer and " + reward + " land in your account." : "One tap, no wrong answers.")
+    : (reward ? "Thanks — " + reward + " added. It'll be there next time the game loads."
+              : "Thanks for answering.");
+}
+
+async function answerPoll(choice) {
+  if (pollBusy || myVote !== null || !poll || !auth.currentUser) return;
+  pollBusy = true;
+  const uid = auth.currentUser.uid;
+  try {
+    await setDoc(doc(db, "polls", poll.id, "votes", uid), {
+      choice,
+      name: auth.currentUser.displayName || "Player",
+      at: serverTimestamp(),
+    });
+  } catch (err) {
+    pollBusy = false;
+    toast(err.code === "permission-denied" ? "You've already answered this one" : "Couldn't send that: " + err.code, 4000);
+    return;
+  }
+  myVote = choice;
+
+  // pay them, into the cloud save the game loads
+  const amount = Number(poll.reward || 0);
+  if (amount > 0) {
+    try {
+      const snap = await getDoc(playerRef);
+      const save = JSON.parse((snap.exists() && snap.data().save) || "{}");
+      const key = poll.currency === "coins" ? "coins" : "star_points";
+      save[key] = Number(save[key] || 0) + amount;
+      save.polls_done = save.polls_done || {};
+      save.polls_done[poll.id] = choice;
+      const text = JSON.stringify(save);
+      await setDoc(playerRef, { save: text, updatedAt: serverTimestamp() }, { merge: true });
+      lastSent = text;
+      try { localStorage.setItem(SAVE_KEY, text); } catch (e) { /* ignore */ }
+      setSync("ok");
+      toast("+" + rewardWords(poll), 4000);
+    } catch (err) {
+      toast("Answer saved, but the reward didn't go through: " + (err.code || err), 5000);
+    }
+  }
+  pollBusy = false;
+  drawPoll();
+  showPollResults();
+}
+
+async function showPollResults() {
+  if (!poll) return;
+  try {
+    const votes = await getDocs(collection(db, "polls", poll.id, "votes"));
+    const counts = poll.options.map(() => 0);
+    votes.forEach((v) => {
+      const c = v.data().choice;
+      if (counts[c] !== undefined) counts[c] += 1;
+    });
+    drawPoll(counts);
+  } catch (err) { /* players may not be allowed to read every vote - that's fine */ }
 }
 
 // ---------------------------------------------------------------- patch notes

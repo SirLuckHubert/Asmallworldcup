@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// A SMALL WORLD CUP fan game
+// aSmallWorldCup
 // Firestore -> Rules -> paste this -> Publish.
 // Change the email here AND in firebase-config.js if the admin account ever changes.
 service cloud.firestore {
@@ -16,33 +16,103 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // one document per player: profile + their save file
-    match /players/{uid} {
-      // you can read your own; the admin can read everyone's
-      allow read: if isAdmin() || isSelf(uid);
+    function signedIn() {
+      return request.auth != null;
+    }
 
-      // first sign-in: you may create your own card, never banned
+    function playerDoc(uid) {
+      return get(/databases/$(database)/documents/players/$(uid)).data;
+    }
+
+    // one document per player: profile, save file, username and ladder record
+    match /players/{uid} {
+      // your own is yours; the ladder and chat need to see names and rank, so those are public
+      allow read: if signedIn();
+
       allow create: if isAdmin() || (isSelf(uid)
         && request.resource.data.get('banned', false) == false
+        && request.resource.data.get('muted', false) == false
         && request.resource.data.keys().hasOnly(
-             ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'lastSeen', 'updatedAt']));
+             ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'muted', 'lastSeen',
+              'updatedAt', 'username', 'usernameKey', 'rp', 'wins', 'losses', 'draws', 'lastResult']));
 
-      // you may update your own save, but not your ban state, and not while banned
       allow update: if isAdmin() || (isSelf(uid)
         && resource.data.get('banned', false) == false
         && request.resource.data.get('banned', false) == false
         && request.resource.data.get('banReason', '') == resource.data.get('banReason', '')
+        && request.resource.data.get('muted', false) == resource.data.get('muted', false)
         && request.resource.data.keys().hasOnly(
-             ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'lastSeen', 'updatedAt'])
-        && request.resource.data.get('save', '').size() < 300000);
+             ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'muted', 'lastSeen',
+              'updatedAt', 'username', 'usernameKey', 'rp', 'wins', 'losses', 'draws', 'lastResult'])
+        && request.resource.data.get('save', '').size() < 300000
+        && request.resource.data.get('rp', 0) is int
+        && request.resource.data.get('rp', 0) >= 0
+        && request.resource.data.get('rp', 0) < 100000);
 
       allow delete: if isAdmin();
     }
 
-    // patch notes: everyone reads, only the admin writes
+    // usernames are claimed once so two people can't have the same one
+    match /usernames/{key} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || (signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'at']));
+      allow update, delete: if isAdmin();
+    }
+
+    // patch notes and the live poll: everyone reads, only the admin writes
     match /site/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // poll answers: one document per player per poll, written once
+    match /polls/{pollId}/votes/{uid} {
+      allow read: if signedIn();                   // results are public to players
+      allow create: if isAdmin() || (isSelf(uid)
+        && request.resource.data.keys().hasOnly(['choice', 'name', 'at'])
+        && request.resource.data.choice is int
+        && request.resource.data.choice >= 0
+        && request.resource.data.choice < 8);
+      allow update, delete: if isAdmin();          // no changing your answer
+    }
+
+    // chat: signed-in players write their own messages, the admin can delete anything
+    match /chat/{msgId} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || (signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'text', 'at'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 200
+        && playerDoc(request.auth.uid).get('muted', false) == false
+        && playerDoc(request.auth.uid).get('banned', false) == false);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // reports go one way: players file them, only the admin reads them
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.keys().hasOnly(['by', 'byName', 'about', 'aboutName', 'text',
+                                                 'reason', 'msgId', 'at', 'done']);
+      allow read, update, delete: if isAdmin();
+    }
+
+    // matchmaking: short-lived documents, any signed-in player may take part
+    match /queue/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isSelf(uid);
+      allow delete: if signedIn();                 // whoever pairs with you clears your slot
+    }
+
+    match /matches/{matchId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();         // the WebRTC handshake, nothing else
+      allow delete: if signedIn();                 // handshake docs are throwaway
     }
 
     match /{document=**} {

@@ -6,9 +6,12 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, query, orderBy, limit,
+  getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
+  serverTimestamp, query, orderBy, limit, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js";
+import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-09-25c";
+import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-09-25c";
+import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-09-25c";
 
 const $ = (id) => document.getElementById(id);
 const fb = initializeApp(firebaseConfig);
@@ -45,6 +48,9 @@ onAuthStateChanged(auth, async (user) => {
   await loadCards();
   await loadPlayers();
   await loadNotes();
+  await loadPoll();
+  await loadReports();
+  await loadChat();
 });
 
 // ---------------------------------------------------------------- cards
@@ -122,7 +128,7 @@ function drawPlayers() {
     if (p.banned) tr.className = "banned";
     const seen = p.lastSeen && p.lastSeen.toDate ? p.lastSeen.toDate().toLocaleString() : "—";
     const cells = [
-      (p.name || "Player") + (p.banned ? " (banned)" : ""),
+      (p.username || p.name || "Player") + (p.banned ? " (banned)" : "") + (p.muted ? " (muted)" : ""),
       p.email || "",
       String(levelOf(save)),
       String(save.coins ?? 0),
@@ -158,6 +164,11 @@ async function openPlayer(uid) {
   $("unban").hidden = !p.banned;
   $("banReason").value = p.banReason || "";
   $("saveText").value = JSON.stringify(saveOf(p), null, 1);
+  $("mute").hidden = !!p.muted;
+  $("unmute").hidden = !p.muted;
+  $("editName").value = p.username || "";
+  $("editRp").value = typeof p.rp === "number" ? p.rp : START_RP;
+  $("rankNow").textContent = rankLine(rankOf(p.rp || 0));
   $("editHint").textContent = p.banned ? "This account is banned." : "";
   $("editor").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -239,6 +250,316 @@ async function setBan(on) {
     drawPlayers();
   } catch (err) {
     toast("Write failed: " + (err.code || err), 5000);
+  }
+}
+
+// ---------------------------------------------------------------- moderation
+$("mute").onclick = () => setMute(true);
+$("unmute").onclick = () => setMute(false);
+
+async function setMute(on) {
+  if (!current) return;
+  try {
+    await updateDoc(doc(db, "players", current), { muted: on });
+    const p = players.find((x) => x.uid === current);
+    if (p) p.muted = on;
+    $("mute").hidden = on;
+    $("unmute").hidden = !on;
+    toast(on ? "Muted in chat" : "Unmuted");
+    drawPlayers();
+  } catch (err) {
+    toast("Write failed: " + (err.code || err), 5000);
+  }
+}
+
+$("saveName").onclick = async () => {
+  if (!current) return;
+  const wanted = tidyUsername($("editName").value);
+  if (!wanted) return toast("Type a name first");
+  const verdict = checkText(wanted, { username: true });
+  if (!verdict.ok && verdict.level !== "reserved") return toast(verdict.why, 4000);
+  try {
+    await setDoc(doc(db, "usernames", usernameKey(wanted)), {
+      uid: current, username: wanted, at: serverTimestamp(),
+    });
+    await updateDoc(doc(db, "players", current), { username: wanted, usernameKey: usernameKey(wanted) });
+    const p = players.find((x) => x.uid === current);
+    if (p) p.username = wanted;
+    toast("Renamed to " + wanted);
+    drawPlayers();
+  } catch (err) {
+    toast("Write failed: " + (err.code || err), 5000);
+  }
+};
+
+$("saveRp").onclick = async () => {
+  if (!current) return;
+  const rp = Math.max(0, Math.round(Number($("editRp").value || 0)));
+  try {
+    await updateDoc(doc(db, "players", current), { rp });
+    const p = players.find((x) => x.uid === current);
+    if (p) p.rp = rp;
+    $("rankNow").textContent = rankLine(rankOf(rp));
+    toast("Set to " + rankLine(rankOf(rp)));
+    drawPlayers();
+  } catch (err) {
+    toast("Write failed: " + (err.code || err), 5000);
+  }
+};
+
+// ---------------------------------------------------------------- reports
+let reports = [];
+
+async function loadReports() {
+  const box = $("reportList");
+  try {
+    const snap = await getDocs(query(collection(db, "reports"), orderBy("at", "desc"), limit(80)));
+    reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    box.textContent = "Couldn't read reports: " + (err.code || err);
+    return;
+  }
+  drawReports();
+}
+$("reportsRefresh").onclick = loadReports;
+$("showDone").onchange = drawReports;
+
+function drawReports() {
+  const box = $("reportList");
+  const showDone = $("showDone").checked;
+  const list = reports.filter((r) => showDone || !r.done);
+  $("reportCount").textContent = "— " + reports.filter((r) => !r.done).length + " waiting";
+  box.textContent = "";
+  if (!list.length) {
+    box.textContent = showDone ? "Nothing reported yet." : "Nothing waiting. ";
+    return;
+  }
+  for (const r of list) {
+    const card = document.createElement("div");
+    card.className = "result";
+    card.style.cssText = "border:1px solid var(--edge);border-radius:12px;padding:14px;margin-bottom:12px";
+    if (r.done) card.style.opacity = ".55";
+
+    const head = document.createElement("div");
+    head.className = "top";
+    const who = document.createElement("span");
+    who.innerHTML = "<b>" + (r.aboutName || "player") + "</b> reported by " + (r.byName || "someone")
+      + " · " + (r.reason || "other");
+    const when = document.createElement("span");
+    when.className = "muted";
+    when.textContent = r.at && r.at.toDate ? r.at.toDate().toLocaleString() : "";
+    head.append(who, when);
+
+    const text = document.createElement("p");
+    text.className = "muted";
+    text.style.margin = "8px 0 12px";
+    text.textContent = '"' + (r.text || "") + '"';
+
+    const row = document.createElement("div");
+    row.className = "row";
+    const open = document.createElement("button");
+    open.className = "btn btn-sm";
+    open.textContent = "Open player";
+    open.onclick = () => r.about && openPlayer(r.about);
+    const mute = document.createElement("button");
+    mute.className = "btn btn-sm btn-danger";
+    mute.textContent = "Mute them";
+    mute.onclick = async () => {
+      if (!r.about) return;
+      await updateDoc(doc(db, "players", r.about), { muted: true }).catch(() => {});
+      toast("Muted");
+    };
+    const del = document.createElement("button");
+    del.className = "btn btn-sm btn-danger";
+    del.textContent = "Delete message";
+    del.hidden = !r.msgId;
+    del.onclick = async () => {
+      await deleteDoc(doc(db, "chat", r.msgId)).catch(() => {});
+      toast("Message deleted");
+      loadChat();
+    };
+    const done = document.createElement("button");
+    done.className = "btn btn-sm";
+    done.textContent = r.done ? "Reopen" : "Mark handled";
+    done.onclick = async () => {
+      await updateDoc(doc(db, "reports", r.id), { done: !r.done }).catch(() => {});
+      r.done = !r.done;
+      drawReports();
+    };
+    row.append(open, mute, del, done);
+    card.append(head, text, row);
+    box.appendChild(card);
+  }
+}
+
+// ---------------------------------------------------------------- chat moderation
+async function loadChat() {
+  const box = $("chatAdmin");
+  let rows = [];
+  try {
+    const snap = await getDocs(query(collection(db, "chat"), orderBy("at", "desc"), limit(40)));
+    rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    box.textContent = "Couldn't read chat: " + (err.code || err);
+    return;
+  }
+  box.textContent = "";
+  if (!rows.length) { box.textContent = "No messages yet."; return; }
+  for (const m of rows) {
+    const line = document.createElement("div");
+    line.className = "chat-msg";
+    line.style.padding = "6px 0";
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = m.username || "player";
+    const body = document.createElement("span");
+    body.className = "body";
+    body.textContent = m.text || "";
+    const del = document.createElement("button");
+    del.className = "btn btn-sm btn-danger";
+    del.textContent = "Delete";
+    del.onclick = async () => {
+      await deleteDoc(doc(db, "chat", m.id)).catch(() => {});
+      loadChat();
+    };
+    const mute = document.createElement("button");
+    mute.className = "btn btn-sm";
+    mute.textContent = "Mute";
+    mute.onclick = async () => {
+      await updateDoc(doc(db, "players", m.uid), { muted: true }).catch(() => {});
+      toast("Muted " + (m.username || "them"));
+    };
+    line.append(who, body, del, mute);
+    box.appendChild(line);
+  }
+}
+$("chatRefresh").onclick = loadChat;
+
+// ---------------------------------------------------------------- poll
+const pollRef = doc(db, "site", "poll");
+let poll = null;
+
+async function loadPoll() {
+  try {
+    const s = await getDoc(pollRef);
+    poll = s.exists() ? s.data() : null;
+  } catch (err) {
+    poll = null;
+  }
+  fillPollForm();
+  await pollResults();
+}
+
+function fillPollForm() {
+  const open = !!(poll && poll.open);
+  $("pollState").textContent = poll
+    ? (open ? "— live since " + (poll.postedAt || "just now") : "— closed")
+    : "";
+  $("pollClose").hidden = !open;
+  if (!poll) return;
+  $("pollQuestion").value = poll.question || "";
+  (poll.options || []).forEach((o, i) => { if ($("pollOpt" + i)) $("pollOpt" + i).value = o; });
+  $("pollReward").value = poll.reward != null ? poll.reward : 300;
+  $("pollCurrency").value = poll.currency || "sp";
+}
+
+function pollFormValues() {
+  const options = [0, 1, 2, 3].map((i) => $("pollOpt" + i).value.trim()).filter(Boolean);
+  return {
+    question: $("pollQuestion").value.trim(),
+    options,
+    reward: Math.max(0, Number($("pollReward").value || 0)),
+    currency: $("pollCurrency").value,
+  };
+}
+
+$("pollPost").onclick = async () => {
+  const v = pollFormValues();
+  if (!v.question) return toast("Write a question first");
+  if (v.options.length < 2) return toast("Give them at least two answers");
+  const id = "p" + Date.now().toString(36);
+  try {
+    await setDoc(pollRef, {
+      id, open: true, postedAt: new Date().toISOString().slice(0, 16).replace("T", " "),
+      updatedAt: serverTimestamp(), ...v,
+    });
+    poll = { id, open: true, ...v };
+    toast("Poll is live — players see it as soon as they open the site");
+    fillPollForm();
+    await pollResults();
+  } catch (err) {
+    toast("Couldn't post it: " + (err.code || err), 5000);
+  }
+};
+
+$("pollClose").onclick = async () => {
+  if (!poll) return;
+  try {
+    await updateDoc(pollRef, { open: false, updatedAt: serverTimestamp() });
+    poll.open = false;
+    toast("Poll closed — the card disappears for players");
+    fillPollForm();
+  } catch (err) {
+    toast("Couldn't close it: " + (err.code || err), 5000);
+  }
+};
+
+$("pollRefresh").onclick = () => pollResults();
+
+async function pollResults() {
+  const box = $("pollResults");
+  if (!poll || !poll.id) {
+    box.textContent = "No poll posted yet.";
+    return;
+  }
+  let votes = [];
+  try {
+    const snap = await getDocs(collection(db, "polls", poll.id, "votes"));
+    votes = snap.docs.map((d) => d.data());
+  } catch (err) {
+    box.textContent = "Couldn't read the votes: " + (err.code || err);
+    return;
+  }
+  const counts = (poll.options || []).map(() => 0);
+  for (const v of votes) if (counts[v.choice] !== undefined) counts[v.choice] += 1;
+  const total = votes.length;
+
+  box.textContent = "";
+  const head = document.createElement("p");
+  head.className = "muted";
+  head.style.margin = "0 0 14px";
+  head.textContent = total + (total === 1 ? " answer" : " answers")
+    + (poll.reward ? "  ·  " + (total * poll.reward) + " " + (poll.currency === "coins" ? "coins" : "Star Points") + " handed out" : "");
+  box.appendChild(head);
+
+  (poll.options || []).forEach((text, i) => {
+    const pct = total ? Math.round((counts[i] / total) * 100) : 0;
+    const row = document.createElement("div");
+    row.className = "result";
+    const top = document.createElement("div");
+    top.className = "top";
+    const left = document.createElement("span");
+    left.textContent = text;
+    const right = document.createElement("b");
+    right.textContent = counts[i] + "  ·  " + pct + "%";
+    top.append(left, right);
+    const track = document.createElement("div");
+    track.className = "track";
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.width = pct + "%";
+    track.appendChild(fill);
+    row.append(top, track);
+    box.appendChild(row);
+  });
+
+  if (total) {
+    const who = document.createElement("p");
+    who.className = "muted";
+    who.style.marginTop = "12px";
+    who.textContent = "Answered: " + votes.map((v) => v.name || "player").slice(0, 25).join(", ")
+      + (total > 25 ? " and " + (total - 25) + " more" : "");
+    box.appendChild(who);
   }
 }
 

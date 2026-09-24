@@ -59,10 +59,11 @@ PY
 echo
 echo "Done."
 echo
-echo "TESTING IT:"
-echo "  * Best: commit web/ and push, then open the GitHub Pages URL."
-echo "  * Locally you MUST use pygbag's own server, not python -m http.server:"
-echo "        python3 -m pygbag --port 8000 \"$STAGE\"      # then http://localhost:8000"
-echo "    (On localhost pygbag switches to DEV MODE and looks for the python/pygame"
-echo "     runtime at http://localhost:8000/cdn/. Only pygbag's server has that copy;"
-echo "     a plain web server gives a grey screen and 'cannot import name Vector2'.)"
+echo "TESTING IT LOCALLY:"
+echo "        python3 \"$HERE/serve_local.py\"      # then open http://localhost:8000"
+echo
+echo "  Do NOT use 'python3 -m http.server'. On localhost pygbag switches to DEV MODE and"
+echo "  looks for the python/pygame runtime at http://localhost:8000/cdn/ ; a plain server"
+echo "  has nothing there, so you get a grey canvas and 'cannot import name Vector2'."
+echo "  serve_local.py forwards those /cdn/ requests to the real CDN, so it behaves like"
+echo "  the live site. (GitHub Pages never goes into dev mode, so it is fine as-is.)"
