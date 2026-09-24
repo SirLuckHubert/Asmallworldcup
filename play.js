@@ -10,10 +10,10 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, addDoc, query, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-09-25c";
-import { Net } from "./net.js?v=2026-09-25c";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-09-25c";
-import { checkText } from "./words.js?v=2026-09-25c";
+import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-09-26d";
+import { Net } from "./net.js?v=2026-09-26d";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-09-26d";
+import { checkText } from "./words.js?v=2026-09-26d";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;
@@ -180,9 +180,7 @@ async function findMatch(wants) {
   net = new Net(db, me.uid);
   net.onState = (state, opp) => {
     netState(state === "playing");
-    if (state === "playing") {
-      $("syncText").textContent = "playing " + ((opp && opp.username) || "a rival");
-    }
+    if (state === "playing") setSync("playing");
   };
   net.onMessage = (msg) => {
     if (!msg) return;
@@ -350,26 +348,30 @@ async function flushSave() {
 window.addEventListener("beforeunload", flushSave);
 setInterval(flushSave, 30000);
 
+// Nothing sits over the game except the fullscreen button, so the save state only
+// speaks up when it has something to say.
 function setSync(state) {
-  const dot = $("syncDot"), text = $("syncText"), hud = $("hud");
-  dot.className = "dot" + (state === "ok" ? " on" : state === "error" ? " err" : "");
-  text.textContent = state === "saving" ? "saving…"
-    : state === "ok" ? "progress saved"
-    : state === "error" ? "couldn't save — check your connection"
-    : "saving to your account";
-  if (state !== "ok") {
-    hud.classList.add("show");
+  const note = $("note");
+  if (!note) return;
+  if (state === "error") {
+    note.textContent = "Couldn't save — check your connection";
+    note.hidden = false;
+  } else if (state === "playing") {
+    note.hidden = true;
   } else {
-    setTimeout(() => hud.classList.remove("show"), 1600);
+    note.hidden = true;
   }
 }
 
 // ---------------------------------------------------------------- fullscreen
 // The window is already the game; this is for hiding the browser's own chrome.
+function fullscreenOn() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
 $("fs").onclick = () => {
   const el = document.documentElement;
-  const on = document.fullscreenElement || document.webkitFullscreenElement;
-  if (on) {
+  if (fullscreenOn()) {
     (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
     return;
   }
@@ -379,8 +381,15 @@ $("fs").onclick = () => {
   }
 };
 
-// show the bar briefly when the pointer goes near the top
-document.addEventListener("mousemove", (e) => {
-  if (e.clientY < 60) $("hud").classList.add("show");
-  else $("hud").classList.remove("show");
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) {
+  document.addEventListener(ev, () => {
+    document.body.classList.toggle("fs-on", fullscreenOn());
+    $("fs").textContent = fullscreenOn() ? "\u2715" : "\u26F6";
+    $("fs").title = fullscreenOn() ? "Leave fullscreen" : "Fullscreen";
+  });
+}
+
+// F also works, since the game itself never uses it
+window.addEventListener("keydown", (e) => {
+  if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.ctrlKey && !e.altKey) $("fs").click();
 });

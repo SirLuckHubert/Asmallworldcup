@@ -6,6 +6,29 @@
   var queue = [];          // messages waiting for the game to poll
   var netUp = false;
 
+  // Fill the window. pygbag centres a fixed-size canvas; this scales it up to the
+  // biggest 16:9 rectangle the window holds, with the pixels kept crisp.
+  function fillWindow() {
+    try {
+      var css = document.createElement("style");
+      css.id = "aswc-fill";
+      css.textContent =
+        "html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#000}" +
+        "canvas{position:absolute!important;top:50%!important;left:50%!important;" +
+        "transform:translate(-50%,-50%)!important;" +
+        "width:min(100vw, calc(100vh * 16 / 9))!important;" +
+        "height:min(100vh, calc(100vw * 9 / 16))!important;" +
+        "max-width:none!important;max-height:none!important;" +
+        "image-rendering:pixelated;image-rendering:crisp-edges;display:block!important}";
+      (document.head || document.documentElement).appendChild(css);
+    } catch (e) { /* the game still runs, just letterboxed */ }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fillWindow);
+  } else {
+    fillWindow();
+  }
+
   function up(msg) {
     try { parent.postMessage(msg, location.origin); } catch (e) { /* not framed */ }
   }

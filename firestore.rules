@@ -32,18 +32,25 @@ service cloud.firestore {
       allow create: if isAdmin() || (isSelf(uid)
         && request.resource.data.get('banned', false) == false
         && request.resource.data.get('muted', false) == false
+        && request.resource.data.get('titles', []).size() == 0
         && request.resource.data.keys().hasOnly(
              ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'muted', 'lastSeen',
-              'updatedAt', 'username', 'usernameKey', 'rp', 'wins', 'losses', 'draws', 'lastResult']));
+              'updatedAt', 'username', 'usernameKey', 'rp', 'wins', 'losses', 'draws', 'lastResult',
+              'titles', 'title']));
 
       allow update: if isAdmin() || (isSelf(uid)
         && resource.data.get('banned', false) == false
         && request.resource.data.get('banned', false) == false
         && request.resource.data.get('banReason', '') == resource.data.get('banReason', '')
         && request.resource.data.get('muted', false) == resource.data.get('muted', false)
+        // the titles the admin handed out are the admin's to change, not yours
+        && request.resource.data.get('titles', []) == resource.data.get('titles', [])
+        && request.resource.data.get('title', '') is string
+        && request.resource.data.get('title', '').size() < 24
         && request.resource.data.keys().hasOnly(
              ['name', 'email', 'photo', 'save', 'banned', 'banReason', 'muted', 'lastSeen',
-              'updatedAt', 'username', 'usernameKey', 'rp', 'wins', 'losses', 'draws', 'lastResult'])
+              'updatedAt', 'username', 'usernameKey', 'rp', 'wins', 'losses', 'draws', 'lastResult',
+              'titles', 'title'])
         && request.resource.data.get('save', '').size() < 300000
         && request.resource.data.get('rp', 0) is int
         && request.resource.data.get('rp', 0) >= 0
@@ -83,7 +90,7 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isAdmin() || (signedIn()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid', 'username', 'text', 'at'])
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'text', 'at', 'title'])
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 200

@@ -9,9 +9,10 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-25c";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-25c";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-25c";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-26d";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-26d";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-26d";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26d";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
@@ -47,6 +48,12 @@ function revealWatch(el) {
 }
 
 const DEFAULT_NOTES = [
+  {
+    date: "2026-09-25",
+    title: "Smoother, and no more misclicks",
+    body: "Opening a crate, scoring and the card menus were rebuilding the whole screen every frame. They don't any more — the heaviest frame of a pack opening now costs about a twentieth of what it did.\n" +
+          "A screen that has just opened ignores clicks for 0.8s, so a double-click can't fire you through it — you can't skip a goal celebration by accident either. Throwing on the pitch is as instant as ever.",
+  },
   {
     date: "2026-09-25",
     title: "Online, ranked, chat",
@@ -179,19 +186,25 @@ if (auth) onAuthStateChanged(auth, async (user) => {
   if (typeof cloud === "string" && cloud.length > 2) {
     try { localStorage.setItem(SAVE_KEY, cloud); } catch (err) { /* private mode */ }
   }
+  const d0 = snap.exists() ? snap.data() : {};
   me = {
     uid: user.uid,
-    username: snap.exists() ? (snap.data().username || "") : "",
-    rp: snap.exists() && typeof snap.data().rp === "number" ? snap.data().rp : START_RP,
-    wins: (snap.exists() && snap.data().wins) || 0,
-    losses: (snap.exists() && snap.data().losses) || 0,
-    muted: !!(snap.exists() && snap.data().muted),
+    username: d0.username || "",
+    rp: typeof d0.rp === "number" ? d0.rp : START_RP,
+    wins: d0.wins || 0,
+    losses: d0.losses || 0,
+    draws: d0.draws || 0,
+    muted: !!d0.muted,
+    titles: Array.isArray(d0.titles) ? d0.titles : [],
+    title: d0.title || "",
+    place: 0,                       // filled in by the ladder
   };
   show(app);
   watchBan();
   watchNotes();
   watchPoll();
   showUsernameCard();
+  drawTitles();
   watchChat();
   loadBoard();
   drawTiers();
@@ -217,7 +230,11 @@ function watchBan() {
       me.wins = d.wins || 0;
       me.losses = d.losses || 0;
       me.muted = !!d.muted;
+      me.draws = d.draws || 0;
+      me.titles = Array.isArray(d.titles) ? d.titles : [];
+      me.title = d.title || "";
       if (d.username) me.username = d.username;
+      drawTitles();
       showUsernameCard();
       if (moved) loadBoard(); else drawMyRank();
     }
@@ -368,8 +385,15 @@ function drawMyRank() {
   const top = isTopTen();
   $("myBadge").innerHTML = badgeSvg(rankOf(me.rp, top), 56);
   $("myRankName").textContent = top ? "Top 10" : tier.label;
-  $("myRankLine").textContent = (me.username ? me.username + " · " : "") + me.rp + " RP"
+  const line = $("myRankLine");
+  line.textContent = (me.username ? me.username + " · " : "") + me.rp + " RP"
     + (top ? " · " + tier.label : "");
+  const worn = wornTitle(me);
+  if (worn) {
+    line.classList.add("name-line");
+    line.appendChild(document.createTextNode(" "));
+    line.appendChild(titleChip(worn, { small: true }));
+  }
   $("myRankFill").style.width = Math.round(tier.progress * 100) + "%";
   $("myRecord").textContent = (me.wins || 0) + "W · " + (me.losses || 0) + "L"
     + (tier.next ? "  ·  " + Math.max(0, tier.next - me.rp) + " RP to the next step" : "");
@@ -391,14 +415,24 @@ async function loadBoard() {
       const tier = rankOf(p.rp || 0);
       const rank = rankOf(p.rp || 0, top);
       rank.label = top ? "Top 10 · " + tier.label : tier.label;
+      if (p.uid === me.uid) { me.place = i + 1; me.draws = p.draws || 0; }
       const tr = document.createElement("tr");
-      if (p.uid === me.uid) tr.style.background = "rgba(62,240,138,.07)";
+      if (p.uid === me.uid) tr.style.background = "rgba(255,255,255,.06)";
       const cells = [String(i + 1), p.username, "", String(Math.round(p.rp || 0)),
                      String(p.wins || 0), String(p.losses || 0)];
       cells.forEach((text, c) => {
         const td = document.createElement("td");
         if (c >= 3) td.className = "num";
-        if (c === 2) {
+        if (c === 1) {
+          const line = document.createElement("span");
+          line.className = "name-line";
+          const nm = document.createElement("span");
+          nm.textContent = text;
+          line.appendChild(nm);
+          const worn = wornTitle({ ...p, place: i + 1 });
+          if (worn) line.appendChild(titleChip(worn, { small: true }));
+          td.appendChild(line);
+        } else if (c === 2) {
           td.innerHTML = '<span class="rank-badge">' + badgeSvg(rank, 22) + "<span>" + rank.label + "</span></span>";
         } else {
           td.textContent = text;
@@ -412,8 +446,85 @@ async function loadBoard() {
   }
   drawMyRank();
   drawTiers();
+  drawTitles();
 }
 $("boardRefresh").onclick = loadBoard;
+
+// ---------------------------------------------------------------- titles
+// Owning a title is worked out, not stored: the admin's list plus whatever the ladder
+// says you have earned. So there is nothing to fake by editing the page - the badge
+// other people see is recomputed from your record.
+const SEEN_KEY = "aswc_titles_seen";
+
+function drawTitles() {
+  const grid = $("titleGrid");
+  if (!grid || !me) return;
+  const owned = ownedTitles(me);
+  const worn = wornTitle(me);
+  grid.textContent = "";
+  for (const t of TITLES) {
+    const have = owned.includes(t.id);
+    const on = worn && worn.id === t.id;
+    const card = document.createElement("button");
+    card.className = "title-card" + (have ? " owned" : "") + (on ? " on" : "");
+    card.style.setProperty("--tc", t.colour);
+    card.style.setProperty("--tl", t.light);
+    card.disabled = !have;
+    card.appendChild(titleChip(t));
+    const how = document.createElement("span");
+    how.className = "how";
+    how.textContent = t.how;
+    card.appendChild(how);
+    if (!have && t.progress) {
+      const [now, goal] = t.progress(me);
+      const bar = document.createElement("div");
+      bar.className = "title-bar";
+      const fill = document.createElement("i");
+      fill.style.width = Math.round(Math.min(1, now / goal) * 100) + "%";
+      bar.appendChild(fill);
+      card.appendChild(bar);
+    }
+    const state = document.createElement("span");
+    state.className = "state";
+    state.textContent = on ? "Wearing this" : have ? "Click to wear" : "Locked";
+    card.appendChild(state);
+    card.onclick = () => wearTitle(t.id);
+    grid.appendChild(card);
+  }
+  $("titleCount").textContent = owned.length + " / " + TITLES.length;
+  $("titleHint").textContent = owned.length
+    ? "Click one to wear it — it shows next to your name on the ladder and in chat."
+    : "You haven't got any yet. Play ranked matches, or wait for one to be handed out.";
+  $("titleClear").hidden = !worn;
+  announceNew(owned);
+  drawMyRank();
+}
+
+function announceNew(owned) {
+  let seen = [];
+  try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch (err) { seen = []; }
+  const fresh = owned.filter((id) => !seen.includes(id));
+  if (fresh.length && seen.length !== 0) {
+    const t = TITLE_BY_ID[fresh[0]];
+    toast("New title: " + t.name + (fresh.length > 1 ? " (+" + (fresh.length - 1) + " more)" : ""), 5000);
+  }
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(owned)); } catch (err) { /* private mode */ }
+}
+
+async function wearTitle(id) {
+  if (!me || !playerRef) return;
+  if (id && !ownedTitles(me).includes(id)) return;
+  const next = me.title === id ? "" : id;          // clicking the one you wear takes it off
+  me.title = next;
+  drawTitles();
+  loadBoard();
+  try {
+    await setDoc(playerRef, { title: next, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (err) {
+    toast("Couldn't save that: " + (err.code || err), 4000);
+  }
+}
+$("titleClear").onclick = () => wearTitle("");
 
 // ---------------------------------------------------------------- chat
 let chatStop = null;
@@ -445,6 +556,11 @@ function drawChat(rows) {
     const who = document.createElement("span");
     who.className = "who" + (m.uid === me.uid ? " mine" : "");
     who.textContent = m.username || "player";
+    if (m.title && TITLE_BY_ID[m.title]) {
+      const chip = titleChip(TITLE_BY_ID[m.title], { small: true });
+      who.appendChild(document.createTextNode(" "));
+      who.appendChild(chip);
+    }
     const body = document.createElement("span");
     body.className = "body";
     body.textContent = m.text || "";
@@ -480,7 +596,8 @@ async function sendChat() {
   $("chatInput").value = "";
   try {
     await addDoc(collection(db, "chat"), {
-      uid: me.uid, username: me.username, text: text.slice(0, 200), at: serverTimestamp(),
+      uid: me.uid, username: me.username, title: (wornTitle(me) || {}).id || "",
+      text: text.slice(0, 200), at: serverTimestamp(),
     });
   } catch (err) {
     toast(err.code === "permission-denied" ? "You're muted" : "Message didn't send", 4000);

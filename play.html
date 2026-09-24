@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>aSmallWorldCup</title>
 <meta name="theme-color" content="#000000">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060b08'/><circle cx='16' cy='16' r='9' fill='%233ef08a'/><path d='M16 9l4 3-1.5 5h-5L12 12z' fill='%23060b08'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23000'/><circle cx='16' cy='16' r='9' fill='%23fff'/><path d='M16 9l4 3-1.5 5h-5L12 12z' fill='%23000'/></svg>">
 <style>
-  /* Deliberately standalone: the game owns the whole window, no site chrome. */
+  /* The game owns the window: nothing on top of it but the fullscreen button. */
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -17,54 +17,62 @@
     background: #000;
     overflow: hidden;
     font-family: "Archivo", "Segoe UI", system-ui, sans-serif;
-    color: #eef5ef;
+    color: #fff;
     overscroll-behavior: none;
   }
   #stage { position: fixed; inset: 0; background: #000; touch-action: none; }
   #stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 
-  /* a small bar that fades out of the way while you play */
-  #hud {
-    position: fixed;
-    top: 0; right: 0;
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 10px;
-    background: linear-gradient(180deg, rgba(4, 10, 6, .82), rgba(4, 10, 6, 0));
-    font-size: 12.5px;
-    color: #9db3a4;
-    z-index: 5;
-    opacity: .28;
-    transition: opacity .25s;
+  /* the one piece of chrome */
+  #fs {
+    position: fixed; top: 12px; right: 12px; z-index: 6;
+    width: 42px; height: 42px;
+    display: grid; place-content: center;
+    font: 700 17px/1 "Archivo", system-ui, sans-serif;
+    color: #fff;
+    background: rgba(0, 0, 0, .55);
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 11px;
+    cursor: pointer;
+    opacity: .35;
+    transition: opacity .2s, box-shadow .2s, background .2s;
   }
-  #hud:hover, #hud.show { opacity: 1; }
-  #hud .dot { width: 8px; height: 8px; border-radius: 50%; background: #6c8274; }
-  #hud .dot.on { background: #3ef08a; box-shadow: 0 0 9px rgba(62,240,138,.8); }
-  #hud .dot.err { background: #ff5f52; }
-  #hud a, #hud button {
-    font: inherit; font-weight: 700;
-    color: #eef5ef; background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.16);
-    border-radius: 8px; padding: 6px 11px; cursor: pointer; text-decoration: none;
+  #fs:hover, #fs:focus-visible {
+    opacity: 1;
+    background: rgba(0, 0, 0, .8);
+    box-shadow: 0 0 22px -4px rgba(255, 255, 255, .55);
+    outline: none;
   }
-  #hud a:hover, #hud button:hover { background: rgba(255,255,255,.16); }
+  body.fs-on #fs { opacity: .18; }
+
+  /* only shows when something actually goes wrong */
+  #note {
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 6;
+    padding: 9px 16px; border-radius: 10px;
+    background: rgba(0, 0, 0, .8);
+    border: 1px solid rgba(255, 255, 255, .22);
+    box-shadow: 0 0 26px -8px rgba(255, 255, 255, .4);
+    font-size: 13px; color: #fff;
+  }
 
   /* sign-in / banned / loading, centred over the black */
   .pane {
     position: fixed; inset: 0; z-index: 10;
     display: grid; place-content: center; justify-items: center; gap: 16px;
     text-align: center; padding: 26px;
-    background: radial-gradient(circle at 50% 42%, #14532c, #030905 70%);
+    background: radial-gradient(circle at 50% 38%, #17181c, #000 68%);
   }
   .pane h1 { font-size: clamp(24px, 4vw, 38px); margin: 0; letter-spacing: -.02em; }
-  .pane p { color: #9db3a4; max-width: 46ch; margin: 0; line-height: 1.6; }
+  .pane p { color: #a9adb4; max-width: 46ch; margin: 0; line-height: 1.6; }
   .pane .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .pane button, .pane a.btn {
     font: inherit; font-weight: 800; font-size: 15px;
-    color: #05210f; background: linear-gradient(135deg, #3ef08a, #21c96c);
+    color: #08080a; background: #fff;
     border: 0; border-radius: 12px; padding: 13px 22px; cursor: pointer; text-decoration: none;
+    box-shadow: 0 0 30px -8px rgba(255, 255, 255, .5);
   }
   .pane a.ghost, .pane button.ghost {
-    background: transparent; color: #eef5ef; border: 1px solid rgba(255,255,255,.2);
+    background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.24); box-shadow: none;
   }
   .pane .google { background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; gap: 10px; }
   .pane .google svg { width: 18px; height: 18px; }
@@ -76,16 +84,12 @@
 
 <div id="stage"></div>
 
-<div id="hud">
-  <span class="dot" id="syncDot"></span>
-  <span id="syncText">saving to your account</span>
-  <button id="fs" title="Fullscreen">⛶</button>
-  <a href="index.html" id="exit">Exit</a>
-</div>
+<button id="fs" title="Fullscreen" aria-label="Fullscreen">⛶</button>
+<div id="note" hidden></div>
 
 <!-- signed out -->
 <div class="pane" id="gate" hidden>
-  <svg class="spin" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#eef5ef"/><path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/></svg>
+  <svg class="spin" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#fff"/><path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#000"/></svg>
   <h1>Sign in to play</h1>
   <p>Your cards, coins and season are saved to your Google account, so you can pick up on any computer or iPad.</p>
   <div class="row">
@@ -99,19 +103,19 @@
 
 <!-- banned -->
 <div class="pane" id="banned" hidden>
-  <h1 style="color:#ff5f52">Banned</h1>
+  <h1 style="color:#ff6b60">Banned</h1>
   <p id="banReason">This account can't play at the moment.</p>
   <a class="btn ghost" href="index.html">Back to the site</a>
 </div>
 
 <!-- loading / problem -->
 <div class="pane" id="loading">
-  <svg class="spin" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#eef5ef"/><path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#060b08"/></svg>
+  <svg class="spin" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#fff"/><path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#000"/></svg>
   <h1 id="loadTitle">Loading the pitch…</h1>
   <p id="loadNote">The first start takes a few seconds while the game downloads.</p>
   <div class="row"><a class="btn ghost" href="index.html">Back to the site</a></div>
 </div>
 
-<script type="module" src="play.js?v=2026-09-25c"></script>
+<script type="module" src="play.js?v=2026-09-26d"></script>
 </body>
 </html>

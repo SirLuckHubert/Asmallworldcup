@@ -9,9 +9,10 @@ import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
   serverTimestamp, query, orderBy, limit, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-09-25c";
-import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-09-25c";
-import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-09-25c";
+import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-09-26d";
+import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-09-26d";
+import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-09-26d";
+import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26d";
 
 const $ = (id) => document.getElementById(id);
 const fb = initializeApp(firebaseConfig);
@@ -170,7 +171,64 @@ async function openPlayer(uid) {
   $("editRp").value = typeof p.rp === "number" ? p.rp : START_RP;
   $("rankNow").textContent = rankLine(rankOf(p.rp || 0));
   $("editHint").textContent = p.banned ? "This account is banned." : "";
+  drawAdminTitles(p);
   $("editor").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------------------------------------------------------------- titles
+// `titles` on the player document is the admin's list. The ones with a rule of their own
+// (100 matches, a high rank, top of the ladder) are worked out from the record instead,
+// so they show here as earned and can't be handed out or taken away.
+function drawAdminTitles(p) {
+  const grid = $("adminTitles");
+  if (!grid) return;
+  const given = Array.isArray(p.titles) ? p.titles : [];
+  const owned = ownedTitles(p);
+  const worn = wornTitle(p);
+  $("titleWorn").textContent = worn ? "Wearing: " + worn.name : "Wearing nothing";
+  grid.textContent = "";
+  for (const t of TITLES) {
+    const auto = !!t.auto;
+    const has = given.includes(t.id);
+    const earned = owned.includes(t.id) && !has;
+    const card = document.createElement("button");
+    card.className = "title-card" + (has || earned ? " owned" : "") + (has ? " on" : "");
+    card.style.setProperty("--tc", t.colour);
+    card.style.setProperty("--tl", t.light);
+    card.disabled = auto;
+    card.appendChild(titleChip(t));
+    const how = document.createElement("span");
+    how.className = "how";
+    how.textContent = t.how;
+    card.appendChild(how);
+    const state = document.createElement("span");
+    state.className = "state";
+    state.textContent = auto ? (earned ? "Earned by playing" : "Not earned yet")
+      : has ? "Given — click to take back" : "Click to give";
+    card.appendChild(state);
+    card.onclick = () => toggleTitle(t.id);
+    grid.appendChild(card);
+  }
+}
+
+async function toggleTitle(id) {
+  if (!current) return;
+  const p = players.find((x) => x.uid === current) || {};
+  const given = Array.isArray(p.titles) ? p.titles.slice() : [];
+  const at = given.indexOf(id);
+  if (at >= 0) given.splice(at, 1); else given.push(id);
+  const patch = { titles: given, updatedAt: serverTimestamp() };
+  if (at >= 0 && p.title === id) patch.title = "";      // taking back what they wear
+  try {
+    await setDoc(doc(db, "players", current), patch, { merge: true });
+    p.titles = given;
+    if (patch.title === "") p.title = "";
+    drawAdminTitles(p);
+    drawPlayers();
+    toast(at >= 0 ? "Title taken back" : "Title given");
+  } catch (err) {
+    toast("Write failed: " + (err.code || err), 5000);
+  }
 }
 
 async function patchSave(fn, note) {

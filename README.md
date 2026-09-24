@@ -16,6 +16,7 @@ web/
   play.html/.js       the game on its own page, full window, plus matchmaking and the ladder write
   net.js              matchmaking through Firestore, then a direct WebRTC link between the players
   ranks.js            the ranked ladder: rank points, six tiers, divisions, Top 10, badge drawing
+  titles.js           the twelve player titles, their colours and how each one is earned
   words.js            the language filter used on usernames and every chat message
   cards.json          card list for the admin's "give a card" box
   shots/*.png         the screenshots on the home page (regenerate whenever the game changes)
@@ -104,12 +105,19 @@ branch `main`, folder `/web` (or move the contents of `web/` to the repo root an
   so you carry on where you left off on any computer.
 * Signed out, the game still works — progress just stays in that browser.
 
+## The look
+
+Black page, white text and hairlines, a soft white glow on the things you can click. The only
+colour on the site comes from rank badges and title chips, which is the point — they stand out.
+The palette lives in `:root` at the top of `style.css`; `--glow` and `--glow-soft` are the shared
+glow, so changing those two changes every card and button at once.
+
 ## Pages
 
 | file | what it is |
 | --- | --- |
 | `index.html` | the site: hero, launch card, features, screenshots, modes, how to play, patch notes |
-| `play.html` | the game on its own, filling the whole window (this is what Start the game opens) |
+| `play.html` | the game on its own, filling the whole window — nothing over it but a fullscreen button in the top right |
 | `admin.html` | admin console: players, saves, bans, card grants, polls, patch notes |
 | `check.html` | diagnostics for the live site |
 
@@ -151,6 +159,36 @@ Win +28, draw +4, loss -18, plus 2 a goal (up to 5 goals) on a win or a draw, ne
 Everyone starts at 0 RP in Bronze III. **Top 10** is a badge, not a score: it only exists once ten
 players are ranked and never goes to someone still in Bronze, so nobody wears it on an empty ladder.
 The numbers live in `ranks.js` (`RP_WIN`, `RP_LOSS`, `RP_DRAW`, `RP_GOAL`, `TIERS`).
+
+## Titles
+
+Twelve of them, listed in `titles.js` with the colour pair they're drawn in. A title shows next to
+your name on the ladder, in chat and on your rank card, and the **Titles** section on the home page
+is where you see what you own and click one to wear it.
+
+| title | how you get it |
+| --- | --- |
+| Beta Player | given |
+| Early Supporter | given |
+| World Cup Veteran | 100 matches played — unlocks itself |
+| First Generation | given |
+| Founding Player | given |
+| Elite Player | Platinum or above (1200 RP) — unlocks itself |
+| Leaderboard King | #1 on the ladder — unlocks itself |
+| World Champion | given |
+| Legendary Player | given |
+| Immortal | given (glows) |
+| Messi | given (glows) |
+| Ronaldo | given (glows) |
+
+**Giving one**: admin console → open a player → the **Titles** panel. Click a card to give it,
+click it again to take it back. The three that unlock themselves are greyed out there — they come
+from the player's own record, so there is nothing to hand out.
+
+Owning a title is worked out, never trusted: the page combines the admin's list (`titles` on the
+player document, which only the admin can write) with what the record earns. The `title` field is
+just which one they chose to wear, and if they don't own it any more it simply doesn't draw — so
+there is nothing to gain by editing the page.
 
 ## Chat and reports
 
@@ -194,7 +232,7 @@ the page's code.
 
 | path | who writes it |
 | --- | --- |
-| `players/<uid>` | the player (their own save, username, rank record) and the admin |
+| `players/<uid>` | the player (their own save, username, rank record, the title they wear) and the admin (everything, including the `titles` they own) |
 | `usernames/<key>` | claimed once by the player, released/renamed by the admin |
 | `chat/<id>` | any signed-in player who isn't muted or banned; the admin can delete |
 | `reports/<id>` | filed by players, readable **only** by the admin |
@@ -235,10 +273,29 @@ Safari, which doesn't allow element fullscreen.
 
 ## If the browser build feels slow
 
+Big pass on this on 25 Sep: opening a crate, scoring, and the card-heavy menus used to allocate
+3-8 megapixels of surface **every frame** and throw it away. Now nothing rebuilds what it can keep -
+the pixel downscale, the veils, the auras, the card gloss, the pack backdrop, the chevron stage, the
+rating shield and the goal banner are all cached or drawn into surfaces that stay. Per frame:
+my club 3.2 -> 0.2 Mpx, packs 4.2 -> 0.1, the store 3.3 -> 0.0, a match frame 2.6 -> 0.01, the goal
+banner 3.1 -> 0.2, the brightest frame of a crate opening 7.6 -> 0.3. Fireworks and particles are
+capped in the browser, where each one is its own draw call.
+
+The caches are bounded by pixels rather than entries, so they can't eat the browser's heap.
+
+
+
 The web build already draws at 640x360 (the game's own pixel resolution) instead of scaling a
 1920x1080 frame, caches rotated sprites, text and translucent panels, and caps physics catch-up at
 three steps a frame. If you still see stutter, close other tabs first - pygbag shares one CPU core
 with everything else on the page.
+
+## Clicking through a screen
+
+Any screen that has just opened ignores clicks for **0.8 seconds** (`MENU_INPUT_DELAY` in the game
+file). It stops a double-click, or a click meant for the last screen, going straight through the new
+one - tapping a goal celebration and ending up two menus deep. The pitch is never delayed: a throw
+still fires the moment you let go.
 
 ## Progression
 
