@@ -291,6 +291,15 @@ Safari, which doesn't allow element fullscreen.
 
 ## If the browser build feels slow
 
+**The card screens.** A screen recording pinned the worst of it on the **ten-pack reveal** and
+**freeplay** — both grids of cards, and both were redrawing every card from scratch every frame:
+dozens of rectangles, lines and bits of text each, plus ten new surfaces and ten smoothscales a
+frame on the reveal. Cards are now drawn once into their own picture and blitted (`card_face`),
+with only the pulsing glow drawn live. Drawing calls per frame: ten-pack reveal 337 → **98**,
+exchange 613 → **248**, star signing 521 → **206**, my club 359 → **123**, freeplay 329 → **65**.
+A frame of football is 54. Rendering both builds and comparing, those screens come out pixel for
+pixel identical.
+
 **26 Sep, second pass.** The screens that paint the most — the store, the pack reveal, a goal —
 were doing two to six times the work of a match frame. Measured with `bench_fill.py`, which counts
 every pixel a frame paints, not just the surfaces it allocates:

@@ -9,11 +9,11 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-26g";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-26g";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-26g";
-import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26g";
-import { mergeIntoSaveText } from "./mail.js?v=2026-09-26g";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-26h";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-26h";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-26h";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26h";
+import { mergeIntoSaveText } from "./mail.js?v=2026-09-26h";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
