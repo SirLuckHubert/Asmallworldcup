@@ -10,10 +10,11 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, addDoc, query, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-09-26e";
-import { Net } from "./net.js?v=2026-09-26e";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-09-26e";
-import { checkText } from "./words.js?v=2026-09-26e";
+import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-09-26g";
+import { Net } from "./net.js?v=2026-09-26g";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-09-26g";
+import { checkText } from "./words.js?v=2026-09-26g";
+import { mergeIntoSaveText } from "./mail.js?v=2026-09-26g";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;
@@ -108,8 +109,15 @@ if (auth) onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  const cloud = d.save || null;
-  if (typeof cloud === "string" && cloud.length > 2) {
+  let cloud = typeof d.save === "string" && d.save.length > 2 ? d.save : null;
+  // messages sent to everyone are merged in even for a player with no save yet
+  let base = cloud;
+  if (!base) {
+    try { base = localStorage.getItem(SAVE_KEY) || "{}"; } catch (err) { base = "{}"; }
+  }
+  const merged = await withBroadcastMail(base);
+  if (merged) cloud = merged;
+  if (cloud) {
     try { localStorage.setItem(SAVE_KEY, cloud); } catch (err) { /* private mode */ }
   }
   watchBan();
@@ -125,6 +133,24 @@ function watchBan() {
       pane("banned");
     }
   }, () => {});
+}
+
+/**
+ * Messages the admin sent to everyone live in site/mail. Merge any the player hasn't got
+ * into their save before the game loads it, and push the save back so it sticks.
+ */
+async function withBroadcastMail(text) {
+  try {
+    const snap = await getDoc(doc(db, "site", "mail"));
+    const items = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    const merged = mergeIntoSaveText(text, items);
+    if (!merged) return null;
+    await setDoc(playerRef, { save: merged, updatedAt: serverTimestamp() }, { merge: true });
+    lastSent = merged;
+    return merged;
+  } catch (err) {
+    return null;                                          // mail is never worth blocking play
+  }
 }
 
 // ---------------------------------------------------------------- the game

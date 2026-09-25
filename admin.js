@@ -9,10 +9,11 @@ import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
   serverTimestamp, query, orderBy, limit, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-09-26e";
-import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-09-26e";
-import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-09-26e";
-import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26e";
+import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-09-26g";
+import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-09-26g";
+import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-09-26g";
+import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26g";
+import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-09-26g";
 
 const $ = (id) => document.getElementById(id);
 const fb = initializeApp(firebaseConfig);
@@ -51,6 +52,7 @@ onAuthStateChanged(auth, async (user) => {
   await loadNotes();
   await loadPoll();
   await loadReports();
+  await loadBroadcast();
   await loadChat();
 });
 
@@ -172,8 +174,124 @@ async function openPlayer(uid) {
   $("rankNow").textContent = rankLine(rankOf(p.rp || 0));
   $("editHint").textContent = p.banned ? "This account is banned." : "";
   drawAdminTitles(p);
+  mailCountLine(p);
   $("editor").scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
+// ---------------------------------------------------------------- mail
+// A message to one player is written straight into their save file; a message for everyone
+// goes in site/mail and the site merges it into each save as they arrive.
+function cardNameOf(id) {
+  const c = cards.find((x) => x.id === id);
+  return c ? `${c.name} (${c.rating})` : id;
+}
+
+function mailCountLine(p) {
+  const box = Array.isArray(saveOf(p).mail) ? saveOf(p).mail : [];
+  const unread = box.filter((m) => m && !m.read).length;
+  $("mailCount").textContent = box.length
+    ? `${box.length} in their inbox${unread ? `, ${unread} unread` : ""}`
+    : "their inbox is empty";
+}
+
+$("mailSend").onclick = async () => {
+  if (!current) return;
+  const subject = $("mailSubject").value.trim();
+  const body = $("mailBody").value.trim();
+  if (!subject && !body) return toast("Write something first", 3000);
+  const cardId = $("mailCard").value.trim() ? cardIdFrom($("mailCard").value) : null;
+  if ($("mailCard").value.trim() && !cardId) return toast("Pick a card from the list", 3500);
+  const gift = tidyGift({
+    coins: $("mailCoins").value, sp: $("mailSp").value, cards: cardId ? [cardId] : [],
+  });
+  const msg = makeMail({ from: $("mailFrom").value, subject, body, gift });
+  await patchSave((save) => addMail(save, msg),
+                  `Mail sent${gift ? " with " + giftWords(gift, cardNameOf) : ""}`);
+  $("mailSubject").value = "";
+  $("mailBody").value = "";
+  $("mailCard").value = "";
+  $("mailCoins").value = "0";
+  $("mailSp").value = "0";
+  const p = players.find((x) => x.uid === current);
+  if (p) mailCountLine(p);
+};
+
+// ---- to everyone
+let broadcast = [];
+
+async function loadBroadcast() {
+  try {
+    const snap = await getDoc(doc(db, "site", "mail"));
+    broadcast = (snap.exists() && Array.isArray(snap.data().items)) ? snap.data().items : [];
+  } catch (err) {
+    broadcast = [];
+  }
+  drawBroadcast();
+}
+
+function drawBroadcast() {
+  const box = $("allList");
+  if (!broadcast.length) {
+    box.innerHTML = '<p class="muted">Nothing sent to everyone yet.</p>';
+    return;
+  }
+  box.textContent = "";
+  for (const m of broadcast) {
+    const row = document.createElement("div");
+    row.className = "note-row";
+    const head = document.createElement("div");
+    head.className = "row";
+    head.style.justifyContent = "space-between";
+    const title = document.createElement("strong");
+    title.textContent = m.subject || "(no subject)";
+    const when = document.createElement("span");
+    when.className = "muted";
+    when.textContent = `${m.at || ""} · ${m.from || ""}` + (m.gift ? ` · ${giftWords(m.gift, cardNameOf)}` : "");
+    head.append(title, when);
+    const body = document.createElement("p");
+    body.className = "muted";
+    body.style.margin = "6px 0 0";
+    body.textContent = m.body || "";
+    const drop = document.createElement("button");
+    drop.className = "btn btn-sm btn-danger";
+    drop.textContent = "Remove";
+    drop.style.marginTop = "8px";
+    drop.onclick = () => saveBroadcast(broadcast.filter((x) => x.id !== m.id), "Removed");
+    row.append(head, body, drop);
+    box.appendChild(row);
+  }
+}
+
+async function saveBroadcast(items, note) {
+  try {
+    await setDoc(doc(db, "site", "mail"), { items: items.slice(0, 20), at: serverTimestamp() });
+    broadcast = items.slice(0, 20);
+    drawBroadcast();
+    toast(note || "Sent");
+  } catch (err) {
+    toast("Write failed: " + (err.code || err), 5000);
+  }
+}
+
+$("allSend").onclick = () => {
+  const subject = $("allSubject").value.trim();
+  const body = $("allBody").value.trim();
+  if (!subject && !body) return toast("Write something first", 3000);
+  const gift = tidyGift({ coins: $("allCoins").value, sp: $("allSp").value, cards: [] });
+  const msg = makeMail({ from: $("allFrom").value, subject, body, gift });
+  delete msg.read;
+  delete msg.claimed;
+  saveBroadcast([msg].concat(broadcast), "Sent to everyone");
+  $("allSubject").value = "";
+  $("allBody").value = "";
+  $("allCoins").value = "0";
+  $("allSp").value = "0";
+};
+
+$("allClear").onclick = () => {
+  if (!confirm("Clear every message sent to everyone? Players who already have them keep them.")) return;
+  saveBroadcast([], "Cleared");
+};
 
 // ---------------------------------------------------------------- titles
 // `titles` on the player document is the admin's list. The ones with a rule of their own

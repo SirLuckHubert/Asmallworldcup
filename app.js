@@ -9,10 +9,11 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-26e";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-26e";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-26e";
-import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26e";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-09-26g";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-09-26g";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-09-26g";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-09-26g";
+import { mergeIntoSaveText } from "./mail.js?v=2026-09-26g";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
@@ -181,9 +182,17 @@ if (auth) onAuthStateChanged(auth, async (user) => {
     console.warn("profile write failed", err);
   }
 
-  // put the cloud save where the game will look for it (same origin as the iframe)
-  const cloud = snap.exists() ? snap.data().save : null;
-  if (typeof cloud === "string" && cloud.length > 2) {
+  // put the cloud save where the game will look for it (same origin as the iframe),
+  // with any message the admin sent to everyone merged in
+  let cloud = snap.exists() && typeof snap.data().save === "string" && snap.data().save.length > 2
+    ? snap.data().save : null;
+  let base = cloud;
+  if (!base) {
+    try { base = localStorage.getItem(SAVE_KEY) || "{}"; } catch (err) { base = "{}"; }
+  }
+  const merged = await withBroadcastMail(base);      // a new player gets the news too
+  if (merged) cloud = merged;
+  if (cloud) {
     try { localStorage.setItem(SAVE_KEY, cloud); } catch (err) { /* private mode */ }
   }
   const d0 = snap.exists() ? snap.data() : {};
@@ -308,6 +317,20 @@ function setSync(state) {
     : state === "ok" ? "Progress saved to your account"
     : state === "error" ? "Couldn't save — check your connection"
     : "Progress saves to your account";
+}
+
+async function withBroadcastMail(text) {
+  try {
+    const snap = await getDoc(doc(db, "site", "mail"));
+    const items = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    const merged = mergeIntoSaveText(text, items);
+    if (!merged) return null;
+    await setDoc(playerRef, { save: merged, updatedAt: serverTimestamp() }, { merge: true });
+    lastSent = merged;
+    return merged;
+  } catch (err) {
+    return null;                                          // mail never blocks anything
+  }
 }
 
 // ---------------------------------------------------------------- username

@@ -17,6 +17,7 @@ web/
   net.js              matchmaking through Firestore, then a direct WebRTC link between the players
   ranks.js            the ranked ladder: rank points, six tiers, divisions, Top 10, badge drawing
   titles.js           the twelve player titles, their colours and how each one is earned
+  mail.js             messages with coins, star points or players attached
   words.js            the language filter used on usernames and every chat message
   cards.json          card list for the admin's "give a card" box
   shots/*.png         the screenshots on the home page (regenerate whenever the game changes)
@@ -190,6 +191,23 @@ player document, which only the admin can write) with what the record earns. The
 just which one they chose to wear, and if they don't own it any more it simply doesn't draw — so
 there is nothing to gain by editing the page.
 
+## Mail
+
+An inbox in the game — **MAIL** on the main menu, with a red count when something is unread.
+A message can carry coins, star points and a player, and nothing is handed over until they open
+it and press **Claim**.
+
+* **To one player**: admin console → open them → *Send mail to this player*. It goes straight into
+  their save, so they have it the next time the game loads.
+* **To everyone**: the *Mail to everyone* panel. That one lives in `site/mail` and is merged into
+  each player's save as they arrive — including players who have never played before, once each.
+  This is the one for telling people about the game.
+
+Mail lives in the save file rather than in its own collection, which is why it needs no extra
+rules and works offline: the game reads it straight out of the save it already has. The game keeps
+the newest 40 messages, and remembers the ids it has already been given so a deleted message
+doesn't come back.
+
 ## Chat and reports
 
 One chat, two places: the section on the site and the bottom-left corner of an online match (the
@@ -273,6 +291,33 @@ Safari, which doesn't allow element fullscreen.
 
 ## If the browser build feels slow
 
+**26 Sep, second pass.** The screens that paint the most — the store, the pack reveal, a goal —
+were doing two to six times the work of a match frame. Measured with `bench_fill.py`, which counts
+every pixel a frame paints, not just the surfaces it allocates:
+
+| screen | was | now |
+| --- | --- | --- |
+| store | 4.60 Mpx a frame | **1.63** |
+| star signing | 5.09 | **2.54** |
+| exchange | 10.77 | **2.28** |
+| packs | 5.28 | **2.64** |
+| my club | 4.16 | **2.08** |
+| crate, sealed | 5.07 | **1.50** |
+| crate, wall of light | 15.44 | **4.60** |
+| crate, card landing | 5.87 | **1.90** |
+| goal celebration | 5.96 | **1.90** |
+| (a match frame) | 2.65 | 2.65 |
+
+Three changes did it. A translucent veil used to mean building a screen-sized surface, filling it
+and blitting it — three passes over two megapixels. It is now a multiply-and-add over the pixels
+already in the frame: one pass, nothing allocated. The wall of light in a pack reveal draws into a
+strip the height of the beams instead of a full screen, and the screen is no longer cleared under
+a backdrop that covers it anyway. And in the browser, menus and reveals are **drawn every other
+frame** — the game still updates at full rate, it just repaints half as often, which nobody can
+see on a menu and which halves what those screens cost.
+
+
+
 **26 Sep - two big ones.** The browser now presents a **640x360 canvas** instead of a
 1920x1080 one (the frame is drawn at that resolution anyway — sending nine times the pixels to
 the canvas bought nothing), and `bridge.js` scales that canvas up to fill the window on the GPU,
@@ -311,7 +356,7 @@ with everything else on the page.
 
 ## Clicking through a screen
 
-Any screen that has just opened ignores clicks for **0.8 seconds** (`MENU_INPUT_DELAY` in the game
+Any screen that has just opened ignores clicks for **0.3 seconds** (`MENU_INPUT_DELAY` in the game
 file). It stops a double-click, or a click meant for the last screen, going straight through the new
 one - tapping a goal celebration and ending up two menus deep. The pitch is never delayed: a throw
 still fires the moment you let go.

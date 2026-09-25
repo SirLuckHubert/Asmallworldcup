@@ -16,7 +16,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PAGES = ["index.html", "admin.html", "play.html", "check.html", "style.css"]
-SCRIPTS = ["app.js", "admin.js", "play.js", "net.js", "ranks.js", "words.js", "titles.js"]
+SCRIPTS = ["app.js", "admin.js", "play.js", "net.js", "ranks.js", "words.js", "titles.js", "mail.js"]
 LOCAL_MODULES = SCRIPTS + ["firebase-config.js"]
 STAMPED = ["style.css"] + SCRIPTS
 OLD = re.compile(r"\d{4}-\d{2}-\d{2}[a-z]")
