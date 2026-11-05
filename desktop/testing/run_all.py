@@ -32,6 +32,7 @@ CHECKS = [
     ("quests_check.py", "daily + weekly quests: counted, rerolled, claimed, chest, free pack"),
     ("stars_check.py", "Star Signings: gold / World Cup / club cards by tier, 41 figures"),
     ("archive_check.py", "Signature Archive + Kempes: boxes, tokens, the level 10 quest"),
+    ("online_check.py", "online 1v1: own doll is yours, kicks stick, same score both screens"),
 ]
 results = []
 for script, what in CHECKS:

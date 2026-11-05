@@ -898,6 +898,31 @@ def tinted(img, colour, key):
     return out
 
 
+_VEILS = []          # [(surface, colour)] - two solid sheets the size of the screen, refilled on a colour change
+
+
+def _veil_sheet(size, rgb):
+    """A solid opaque sheet at least `size` big in colour `rgb` (refilling one is a plain fill)."""
+    rgb = tuple(int(c) for c in rgb)
+    for i, (sheet, c) in enumerate(_VEILS):
+        if sheet.get_width() >= size[0] and sheet.get_height() >= size[1]:
+            if c == rgb:
+                _VEILS.append(_VEILS.pop(i))           # most recently used goes last
+                return sheet
+    # reuse the older of the two that is big enough, or make one the size of the screen
+    big = [i for i, (sheet, c) in enumerate(_VEILS) if sheet.get_width() >= size[0] and sheet.get_height() >= size[1]]
+    if big and len(_VEILS) >= 2:
+        i = big[0]
+        sheet = _VEILS.pop(i)[0]
+    else:
+        sheet = pygame.Surface((max(size[0], WIDTH), max(size[1], HEIGHT)))
+        if len(_VEILS) >= 2:
+            _VEILS.pop(0)
+    sheet.fill(rgb)
+    _VEILS.append((sheet, rgb))
+    return sheet
+
+
 def wash(target, colour, rect=None, slot=0):
     """A flat translucent wash over the target.
 
@@ -915,6 +940,22 @@ def wash(target, colour, rect=None, slot=0):
     if alpha >= 252:                                   # solid: a plain fill is cheapest
         target.fill(col[:3], r)
         return
+    # 5 Nov (second pass): on an opaque target - the frame itself, where nearly every veil goes -
+    # a solid sheet with surface alpha is ONE blend pass, where multiply-then-add was two of
+    # pygame's slowest per-pixel loops. The goal banner, the pack's white flash and the pause
+    # veil all sit on this, every frame they're up. (A target with its own alpha keeps the
+    # multiply: a plain blend would fill in its transparent corners.)
+    if not (target.get_flags() & pygame.SRCALPHA):
+        try:
+            r = pygame.Rect(r).clip(target.get_rect())
+            if r.w <= 0 or r.h <= 0:
+                return
+            sheet = _veil_sheet((r.w, r.h), col[:3])
+            sheet.set_alpha(alpha)
+            target.blit(sheet, r.topleft, (0, 0, r.w, r.h))
+            return
+        except Exception:
+            pass
     try:
         target.fill((keep, keep, keep), r, special_flags=pygame.BLEND_RGB_MULT)
         add = tuple(int(c * alpha / 255.0) for c in col[:3])
@@ -4142,8 +4183,25 @@ def js_window():
 # ONLINE PLAY + CHAT: the page (play.html) owns the connection; the game just
 # posts messages to it and reads what comes back. All no-ops on the desktop.
 # ==========================================================
-NET_SNAP_HZ = 18.0                # host snapshots a second
-NET_LERP = 0.25                   # how hard the guest is pulled onto each snapshot
+# 5 Nov: online 1v1 rebuilt. It was "host plays, guest watches a replay": the host ran the whole
+# match and the guest's own throws went to the host and came back, so the guest felt every
+# millisecond of the connection twice and the host felt none - one player always lagged.
+# Now each player owns their own doll (it moves the instant you let go, on both screens it is
+# the owner's word), the host owns the ball and the score, and a ball the guest touches on his
+# own screen is his kick: the host takes it as he sent it. Both sides read the ping and aim
+# the other doll at where it will be by now, not where it was when the message left.
+NET_PROTO = 2
+NET_SNAP_HZ = 30.0                # host -> guest: the host's doll, the ball, the score
+NET_ME_HZ = 30.0                  # guest -> host: the guest's own doll
+NET_PING_EVERY = 1.0              # both ways, for the round trip
+NET_LERP = 0.25                   # (old protocol) how hard the guest is pulled onto each snapshot
+NET_PULL_DOLL = 0.35              # the other player's doll: how hard it's pulled onto each update
+NET_PULL_BALL = 0.30              # the guest's ball onto the host's
+NET_SNAP_DIST = 260.0             # further apart than this (a kick-off reset): jump, don't slide
+NET_KICK_HOLD = 0.60              # after a touch the guest's own ball is his for this long, or until the host has it
+NET_KICK_GAP = 0.15               # touches closer together than this are one kick (a dribble is one long kick)
+NET_HOST_GUARD = 0.12             # the host's own touch in the last 0.12 s beats a guest kick for the same ball
+NET_KICK_REACH = 300.0            # a guest kick only counts if his doll is this close to the ball on the host
 CHAT_LINES = 4                    # messages shown in the corner
 CHAT_SECONDS = 9.0                # how long each one hangs about
 CHAT_PRESETS = ("GOOD LUCK", "NICE GOAL", "UNLUCKY", "GOOD GAME", "SORRY", "CLOSE ONE")
@@ -6373,6 +6431,8 @@ class Game:
                     continue                       # don't let the celebration be clicked away at once
                 if event.type == pygame.MOUSEBUTTONDOWN or (
                         event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE):
+                    if self.state == GOAL and self.mode == "pvp" and self.pvp_v2() and not self.pvp_host():
+                        continue                   # online, the host restarts (both screens together)
                     self.advance_after_goal()
                 continue
 
@@ -6407,8 +6467,9 @@ class Game:
 
     def release_throw(self, mouse):
         # launch_vector = mouse_position - player_position
-        if self.mode == "pvp" and self.pvp is not None and not self.pvp_host():
-            # mirror it back into the host's world before sending
+        guest = self.mode == "pvp" and self.pvp is not None and not self.pvp_host()
+        if guest and not self.pvp_v2():
+            # an older host: mirror the release point back into the host's world and send it
             self.net.send({"t": "input", "x": round(WIDTH - mouse.x, 1), "y": round(mouse.y, 1)})
         launch = mouse - self.player.pos
         if launch.length() > 1.0:              # no cancel: every release throws
@@ -6418,6 +6479,8 @@ class Game:
                 self.ren.on_throw()
                 if self.tut is not None:
                     self.tut["throws"] += 1
+                if guest and self.pvp_v2():
+                    self.send_me()                       # the host sees the throw now, not next tick
 
     def advance_after_goal(self):
         self.slowmo = 1.0
@@ -6512,7 +6575,10 @@ class Game:
 
     # heavy screens worth rendering once in advance: their text and card art then sit in
     # the caches, so walking into them is no more work than any other frame
-    WARM_SCREENS = (STORE, PACKS, MYCLUB)
+    # 5 Nov: Star Signings too (its first open built ~140 card pictures in one frame), and the
+    # walkout's big pictures (decoding them mid-opening was a hitch on the rip)
+    WARM_SCREENS = (STORE, PACKS, MYCLUB, "walkout", "stars_cards", STARS)
+    WARM_CARDS_PER_STEP = 4
 
     def warm_step(self):
         """Called on a frame we are not painting: quietly build one heavy screen offscreen.
@@ -6526,7 +6592,20 @@ class Game:
         if not queue or self.menu_busy() or self.state not in MENU_STATES:
             return
         state = queue.pop(0)
-        draw = {STORE: "draw_store", PACKS: "draw_packs", MYCLUB: "draw_myclub"}.get(state)
+        if state == "stars_cards":
+            try:
+                if not self.warm_stars_cards(self.WARM_CARDS_PER_STEP):
+                    queue.insert(0, "stars_cards")         # more next spare frame
+            except Exception:
+                pass
+            return
+        if state == "walkout":
+            try:
+                self.warm_walkout()
+            except Exception:
+                pass
+            return
+        draw = {STORE: "draw_store", PACKS: "draw_packs", MYCLUB: "draw_myclub", STARS: "draw_stars"}.get(state)
         fn = getattr(self, draw, None) if draw else None
         if fn is None:
             return
@@ -6537,6 +6616,34 @@ class Game:
             pass                           # warming is a nicety, never a reason to crash
         finally:
             self.state = was
+
+    def warm_stars_cards(self, n=None, pages=2):
+        """Star Signings' first pages of cards, drawn once offscreen (n at a time, or all).
+        Its first open used to build ~140 card pictures in the one frame you walked in.
+        Returns True when they're all done."""
+        done = getattr(self, "_warm_ss", 0)
+        items = self.ss_players()[:self.SS_COLS * self.SS_ROWS * pages]
+        todo = items[done:] if n is None else items[done:done + n]
+        cr = pygame.Rect(0, 0, 176, 278)
+        for c in todo:
+            self.blit_card(self.world, c, cr)
+        self._warm_ss = done + len(todo)
+        return self._warm_ss >= len(items)
+
+    def warm_walkout(self):
+        """Decode the walkout's big pictures now rather than in the middle of a pack opening."""
+        if self.wk_ok():
+            for name in ["pk_globe", "pk_close"] + ["pk_%s_%s" % (k, t) for k in ("burst", "stadium")
+                                                 for t in "ABLC"]:
+                self.wk_img(name)
+
+    def warm_flags(self):
+        """Every nation's flag cloth (the still frame the browser shows), built once."""
+        for code in NATION_NAMES:
+            try:
+                self.flag_cloth(code, 0)
+            except Exception:
+                pass
 
     def tick_input_lock(self, dt):
         """A screen that has just appeared ignores clicks for a moment.
@@ -6619,10 +6726,19 @@ class Game:
             if self.state_timer <= 0.0:
                 self.state = PLAY
                 self.ball.frozen = False
-                self.ball.vel.update(random.uniform(-160, 160), 120.0)
+                if self.mode == "pvp" and self.pvp_v2() and not self.pvp_host():
+                    self.ball.vel.update(0.0, 120.0)      # online the host's dice decide; his ball lands here
+                else:
+                    self.ball.vel.update(random.uniform(-160, 160), 120.0)
                 self.sfx.play("whistle", 0.35)
         elif self.state in (GOAL, FULLTIME):
-            pass                                   # waits for a click, stays in slow-mo
+            # waits for a click, stays in slow-mo. Online the host's side also moves on by
+            # itself, so nobody is left watching a replay while the other one has gone for a drink
+            if self.state == GOAL and self.mode == "pvp" and self.pvp_host():
+                self.state_timer -= dt
+                if self.state_timer <= 0.0:
+                    self.advance_after_goal()
+                    return
 
         if self.mode == "practice" and self.practice["reset_t"] > 0.0:
             self.practice["reset_t"] -= dt
@@ -6716,12 +6832,14 @@ class Game:
                 ball_vs_player(self.ball, self.player, self.sfx, self.particles, self.on_big_hit):
             self.last_touch = "home"
             self.ren.on_touch((self.ball.vel - v0).length(), prev)
+            if self.mode == "pvp" and self.pvp is not None:
+                self.pvp_touched()
         if self.ball.ghost_t <= 0.0 and ball_vs_player(self.ball, self.cpu, self.sfx, self.particles,
                                                        self.on_big_hit):
             self.last_touch = "away"
         player_vs_player(self.player, self.cpu, self.sfx, self.ball)
-        if self.state == PLAY:
-            self.check_goal()
+        if self.state == PLAY and not (self.mode == "pvp" and self.pvp_v2() and not self.pvp_host()):
+            self.check_goal()                      # online, the host's screen decides goals
 
     def on_big_hit(self, strength):
         self.shake = min(SHAKE_CAP, self.shake + strength / 400.0)
@@ -11562,15 +11680,20 @@ class Game:
             if v < 255:
                 band.fill((v, v, v, 255), special_flags=pygame.BLEND_RGBA_MULT)
             out.blit(band, (amp + int(round(dx)), y))
-        if len(cache) > 400:
-            cache.clear()
+        if len(cache) > 1200:
+            # 5 Nov: this used to clear() at 400 - but a screen of champion cards needs 32 frames
+            # per club, so Star Signings and the pack store rebuilt every pennant, every frame,
+            # forever. Now only the oldest half goes.
+            for old in list(cache)[:600]:
+                del cache[old]
         cache[ck] = (out, amp)
         return cache[ck]
 
     def draw_champ_pennants(self, surf, club, rect):
         bx0, by0, bx1, by1 = self.TPL_BODY
         kx, ky = rect.w / float(bx1 - bx0), rect.h / float(by1 - by0)
-        f = int(pygame.time.get_ticks() * 0.001 * self.PEN_FPS) % self.PEN_FRAMES
+        # in the browser the pennants hang still, like the flags (FLAG_STILL): one frame a club
+        f = 0 if FLAG_STILL else int(pygame.time.get_ticks() * 0.001 * self.PEN_FPS) % self.PEN_FRAMES
         drew = False
         for side in (-1, 1):
             hit = self.champ_pen_frame(club, rect.w, rect.h, side, f)
@@ -14883,16 +15006,32 @@ class Game:
         """A soft round glow that fades to nothing at its edge (glow_blob is a flat oval).
         Built at 32 px and smoothed up; kept per size and colour, faded with set_alpha."""
         cache = self.__dict__.setdefault("_wk_soft", {})
-        key = (max(16, int(size[0]) // 16 * 16), max(16, int(size[1]) // 16 * 16), tuple(col)[:3])
+        # 5 Nov: sizes snap to steps of ~7%, not 16 px. The glow behind the tearing pack grows
+        # every frame, so 16 px meant a fresh smooth-scale of a megapixel or more on every frame
+        # of the rip - the stutter when a pack opened. A soft glow 7% off its size looks the same.
+        def snap(v):
+            v = max(16.0, float(v))
+            return max(16, int(round(16 * 1.07 ** round(math.log(v / 16.0, 1.07)))))
+        key = (snap(size[0]), snap(size[1]), tuple(col)[:3])
         img = cache.get(key)
         if img is None:
             lo = pygame.Surface((34, 34), pygame.SRCALPHA)
             for i in range(16, 0, -1):
                 pygame.draw.ellipse(lo, tuple(col)[:3] + (int(255 * (1 - i / 16.0) ** 1.6),),
                                     (17 - i, 17 - i, 2 * i, 2 * i))
-            img = pygame.transform.smoothscale(lo, key[:2])
-            if len(cache) > 60:
-                cache.clear()
+            if key[0] * key[1] <= 512 * 512:
+                img = pygame.transform.smoothscale(lo, key[:2])
+            else:
+                # big glows: smooth to 512 once per colour, then a plain (cheap) stretch - a
+                # megapixel smooth-scale per new size was the cost; the 3x-downscaled frame
+                # can't tell the difference
+                base = cache.get(("base", key[2]))
+                if base is None:
+                    base = cache[("base", key[2])] = pygame.transform.smoothscale(lo, (512, 512))
+                img = pygame.transform.scale(base, key[:2])
+            if len(cache) > 90:
+                for k in list(cache)[:45]:
+                    del cache[k]
             cache[key] = img
         img.set_alpha(max(0, min(255, int(alpha))))
         return img
@@ -15330,6 +15469,43 @@ class Game:
         self.home_text(w, "SWIPE TO TEAR", (pill.centerx, pill.y + 48), 56, WHITE, anchor="center")
         self.home_text(w, "or tap", (pill.centerx, pill.bottom + 40), 30, (200, 196, 230), anchor="center")
 
+    def wk_rays(self, cx, tear_y, W, tell, o):
+        """The god rays out of the torn pack, drawn into a sheet only as big as the rays, and kept.
+
+        They used to be drawn into a full-screen layer and blended in whole, every frame: two
+        million pixels of blend while the pack was tearing. Once they have grown (0.22 s) they
+        only move with the shake, so a picture snapped to 6 px gets reused frame after frame."""
+        o = round(o * 8) / 8.0
+        ty = int(tear_y) // 6 * 6
+        key = (int(cx), ty, int(W) // 16, tuple(tell), o)
+        cache = self.__dict__.setdefault("_wk_rays", {})
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
+        polys = []
+        for j in range(13):
+            ang = -math.pi / 2 + (j - 6) * 0.16 + 0.05 * math.sin(j * 7.3)
+            wd = 0.03 + 0.018 * (j % 3)
+            L = 1700 * o
+            base_x = cx + (j - 6) * W * 0.06
+            polys.append([(base_x, ty), (cx + math.cos(ang - wd) * L, ty + math.sin(ang - wd) * L),
+                          (cx + math.cos(ang + wd) * L, ty + math.sin(ang + wd) * L)])
+        xs = [x for p in polys for x, y in p]
+        ys = [y for p in polys for x, y in p]
+        box = pygame.Rect(int(min(xs)) - 2, int(min(ys)) - 2, int(max(xs) - min(xs)) + 5,
+                          int(max(ys) - min(ys)) + 5).clip(pygame.Rect(0, 0, WIDTH, HEIGHT))
+        if box.w <= 0 or box.h <= 0:
+            return None, (0, 0)
+        sheet = pygame.Surface(box.size, pygame.SRCALPHA)
+        col = lerp_rgb((255, 252, 240), tell, 0.45) + (int(60 + 80 * o),)
+        for p in polys:
+            pygame.draw.polygon(sheet, col, [(x - box.x, y - box.y) for x, y in p])
+        if len(cache) > 4:
+            for k in list(cache)[:2]:
+                del cache[k]
+        cache[key] = (sheet, box.topleft)
+        return cache[key]
+
     def wk_pack_opens(self, w, pr, t, art, cx, cy, theme, tell, end):
         """It shakes, light zips along the seam, it rips, the top flies off, light pours out -
         in the tell's colour (the pack before the rip gives nothing away)."""
@@ -15339,7 +15515,7 @@ class Game:
         T = self.WK_TEAR_AT
         a = max(0.0, t - T)                                  # time since it ripped
         push = 1.0 + 0.08 * min(1.0, t / T) + 0.5 * a
-        W, H = int(self.WK_PACK[0] * push) // 4 * 4, int(self.WK_PACK[1] * push) // 4 * 4
+        W, H = int(self.WK_PACK[0] * push) // 12 * 12, int(self.WK_PACK[1] * push) // 12 * 12
         k = W / float(self.WK_PACK[0])
         shake = (4 + 16 * (t / T) ** 2) if t < T else 26 * math.exp(-a * 9)
         x0 = cx - W / 2.0 + random.uniform(-shake, shake)
@@ -15376,16 +15552,9 @@ class Game:
                               random.choice(((255, 255, 255), tell, tell, _shade(tell, 1.3))),
                               random.uniform(0.5, 1.0), 1])
         o = min(1.0, a / 0.22)
-        veil = scratch((WIDTH, HEIGHT), slot=3)              # god rays out of the tear
-        for j in range(13):
-            ang = -math.pi / 2 + (j - 6) * 0.16 + 0.05 * math.sin(j * 7.3)
-            wd = 0.03 + 0.018 * (j % 3)
-            L = 1700 * o
-            base_x = cx + (j - 6) * W * 0.06
-            pygame.draw.polygon(veil, lerp_rgb((255, 252, 240), tell, 0.45) + (int(60 + 80 * o),),
-                                [(base_x, tear_y), (cx + math.cos(ang - wd) * L, tear_y + math.sin(ang - wd) * L),
-                                 (cx + math.cos(ang + wd) * L, tear_y + math.sin(ang + wd) * L)])
-        w.blit(veil, (0, 0))
+        rays, at = self.wk_rays(cx, tear_y, W, tell, o)      # god rays out of the tear
+        if rays is not None:
+            w.blit(rays, at)
         # the body drops away a little; its torn edge glows
         by = y0 + 700 * a * a
         w.blit(scaled(body, (W, H)), (int(x0), int(by)))
@@ -15609,6 +15778,25 @@ class Game:
         if local >= 0.4:
             self.wk_landing_text(w, card, pool, pr["count"], glow, cx)
 
+    def wk_preload(self, pr, theme, plain):
+        """While the pack waits for its tap, get this opening's big pictures ready, one a frame.
+
+        5 Nov: the stadium (and the burst, the globe, the close-up) were loaded and blown up to
+        the full screen on the very frame they first appeared - a hitch in the middle of the
+        rip. The pack sits there for a second or more anyway, so the work goes there."""
+        n = pr["wk_pre"] = pr.get("wk_pre", 0) + 1
+        jobs = [lambda: self.wk_full("pk_stadium_" + theme)]
+        if not plain:
+            jobs += [lambda: self.wk_full("pk_burst_" + theme),
+                     lambda: self.wk_blit_globe(scratch((8, 8), 7), 0, -999, -999, 8),
+                     lambda: self.wk_close_frames(theme)]
+        i = n - 2                                            # (the first waiting frame builds the stage)
+        if 0 <= i < len(jobs):
+            try:
+                jobs[i]()
+            except Exception:
+                pass                                         # a nicety, never a reason to crash
+
     def draw_pack_open(self, w):
         pr = self.pack_reveal
         if not self.wk_ok():
@@ -15623,6 +15811,7 @@ class Game:
         art = pr.get("art") or self.pack_art[pr["pack"]]
         if not pr["opened"]:
             self.wk_idle(w, pr, art, "A", tt, cx, cy)        # every pack looks the same until it rips
+            self.wk_preload(pr, theme, pool == "C")
             return
         # clocked in real time so the beats stay locked to the song
         now = pygame.time.get_ticks() / 1000.0
@@ -16298,7 +16487,14 @@ class Game:
         self.pvp = {"role": info.get("role", "host"), "name": info.get("name", "YOU"),
                     "opp": info.get("oppName", "RIVAL"), "ranked": bool(info.get("ranked", True)),
                     "rank": info.get("rank", ""), "oppRank": info.get("oppRank", ""),
-                    "sent": 0, "got": 0, "last": 0.0}
+                    "sent": 0, "got": 0, "last": 0.0,
+                    # 5 Nov netcode: the other side's protocol (1 until they say hello), the round
+                    # trip, the guest's kicks and what the host has taken of them
+                    "proto": 1, "rtt": 120.0, "ping_t": 0.0, "me_t": 0.0,
+                    "kick_id": 0, "kick_t": -9.0, "kick_send_t": -9.0, "kick_ack": 0,
+                    "kick_seen": 0, "host_touch_t": -9.0}
+        self.pvp["proto"] = getattr(self, "early_proto", None) or 1
+        self.early_proto = None
         self.mode = "pvp"
         self.my_card, self.cpu_card = me, opp
         self.player.set_stats(me)
@@ -16311,6 +16507,7 @@ class Game:
         self.early_squad = None
         self.new_match()
         self.net.send({"t": "squad", "ids": [c["id"] for c in self.lineup_cards()]})   # for their team sheet
+        self.net.send({"t": "hello", "v": NET_PROTO})
         self.start_versus()
         self.toast("MATCH FOUND  -  %s" % self.pvp["opp"].upper(), CYAN)
 
@@ -16353,10 +16550,49 @@ class Game:
         if why:
             self.toast(why, (255, 150, 150))
 
+    def net_now(self):
+        return pygame.time.get_ticks() / 1000.0
+
+    def pvp_v2(self):
+        return self.pvp is not None and self.pvp.get("proto", 1) >= 2
+
     def net_pump(self, dt):
-        """Read whatever the page has for us, then (as host) send the world back."""
-        for msg in self.net.poll():
+        """Read whatever the page has for us, then send our side of the match back."""
+        msgs = self.net.poll()
+        last_snap = max([i for i, m in enumerate(msgs) if m.get("t") == "snap"], default=-1)
+        for i, msg in enumerate(msgs):
             kind = msg.get("t")
+            if kind == "snap":
+                # only the newest one matters - but in its place: a "half" sent after it must
+                # land after it, or the snapshot would cancel the sub screen it just opened
+                if i == last_snap and self.pvp is not None and not self.pvp_host():
+                    self.apply_snapshot(msg)
+                continue
+            if kind == "hello" or (kind == "ping" and "v" in msg):
+                v = int(msg.get("v", 1) or 1)                 # (every ping says it too: a hello can beat
+                if self.pvp is not None:                     #  our own start message and be missed)
+                    self.pvp["proto"] = v
+                else:
+                    self.early_proto = v
+                if kind == "hello":
+                    continue
+            if kind == "ping":
+                self.net.send({"t": "pong", "c": msg.get("c")})
+                continue
+            if kind == "pong" and self.pvp is not None:
+                try:
+                    rtt = max(1.0, (self.net_now() - float(msg.get("c"))) * 1000.0)
+                    self.pvp["rtt"] = rtt if self.pvp.get("rtt_n", 0) == 0 else self.pvp["rtt"] * 0.8 + rtt * 0.2
+                    self.pvp["rtt_n"] = self.pvp.get("rtt_n", 0) + 1
+                except (TypeError, ValueError):
+                    pass
+                continue
+            if kind == "me" and self.pvp is not None and self.pvp_host():
+                self.apply_remote_doll(self.cpu, msg.get("d"), msg.get("lat", 0.0))
+                continue
+            if kind == "kick" and self.pvp is not None and self.pvp_host():
+                self.take_guest_kick(msg)
+                continue
             if kind == "start":
                 self.searching = None
                 self.start_pvp(msg)
@@ -16370,10 +16606,8 @@ class Game:
                 del self.chat_log[:-12]
             elif kind == "left" and self.pvp is not None:
                 self.finish_pvp(walkover=True)
-            elif kind == "snap" and self.pvp is not None and not self.pvp_host():
-                self.apply_snapshot(msg)
-            elif kind == "input" and self.pvp is not None and self.pvp_host():
-                self.apply_remote_throw(msg)
+            elif kind == "input" and self.pvp is not None and self.pvp_host() and not self.pvp_v2():
+                self.apply_remote_throw(msg)                 # an older guest: throws as targets
             elif kind == "squad":                          # the rival's bench, for the team sheet
                 ids = [k for k in msg.get("ids", ()) if k in self.cards][:SHEET_SIZE["pvp"]]
                 if self.pvp is not None:
@@ -16393,26 +16627,125 @@ class Game:
             line[2] += dt
         self.chat_log = [c for c in self.chat_log if c[2] < CHAT_SECONDS]
 
-        if self.pvp is not None and self.pvp_host() and self.state in (KICKOFF, PLAY, GOAL, FULLTIME):
+        if self.pvp is None:
+            return
+        live = self.state in (KICKOFF, PLAY, GOAL, FULLTIME)
+        now = self.net_now()
+        if now - self.pvp["ping_t"] >= NET_PING_EVERY:
+            self.pvp["ping_t"] = now
+            self.net.send({"t": "ping", "c": round(now, 3), "v": NET_PROTO})
+        if self.pvp_host() and live:
             self.net_t -= dt
             if self.net_t <= 0.0:
-                self.net_t = 1.0 / NET_SNAP_HZ
+                self.net_t = 1.0 / (NET_SNAP_HZ if self.pvp_v2() else 18.0)
                 self.send_snapshot()
+        elif not self.pvp_host() and live and self.pvp_v2():
+            self.pvp["me_t"] -= dt
+            if self.pvp["me_t"] <= 0.0:
+                self.send_me()
+
+    def net_lat(self):
+        """One way, in ms: half the measured round trip."""
+        return 0.5 * (self.pvp or {}).get("rtt", 120.0)
+
+    def to_host(self, v):
+        """Guest coordinates -> host coordinates (the same mirror both ways)."""
+        return self.flip_doll(v)
+
+    def send_me(self):
+        """Guest: my doll as I see it - on the host it's moved to match."""
+        self.pvp["me_t"] = 1.0 / NET_ME_HZ
+        self.net.send({"t": "me", "d": self.to_host(self.doll_state(self.player)), "lat": round(self.net_lat(), 1)})
+
+    def ball_state(self):
+        b = self.ball
+        return [round(b.pos.x, 1), round(b.pos.y, 1), round(b.vel.x, 1), round(b.vel.y, 1),
+                round(b.spin, 1), 1 if b.frozen else 0]
+
+    def ahead(self, v, lat_ms):
+        """Where a doll or ball sent lat_ms ago is by now: carried on along its velocity, in the
+        world's own (slower) time."""
+        k = max(0.0, min(0.25, lat_ms / 1000.0)) * WORLD_TIME * self.slowmo
+        return v[0] + v[2] * k, min(GROUND_Y, v[1] + v[3] * k)
+
+    def apply_remote_doll(self, d, v, lat_ms):
+        """The other player's doll: their word on it, aimed at where it is by now."""
+        if not v or len(v) < 6:
+            return
+        try:
+            lat = float(lat_ms or 0.0) + self.net_lat()       # theirs to the page + ours back
+        except (TypeError, ValueError):
+            lat = self.net_lat()
+        tx, ty = self.ahead(v, lat * 0.5)
+        if (Vector2(tx, ty) - d.pos).length() > NET_SNAP_DIST:
+            d.pos.update(tx, ty)                              # a reset (kick-off): jump to it
+        else:
+            d.pos.x += (tx - d.pos.x) * NET_PULL_DOLL
+            d.pos.y += (ty - d.pos.y) * NET_PULL_DOLL
+        d.vel.update(v[2], v[3])
+        d.angle += (v[4] - d.angle) * NET_PULL_DOLL
+        d.av = v[5]
+
+    def pvp_touched(self):
+        """Called when MY doll touches the ball on my screen."""
+        now = self.net_now()
+        if self.pvp_host():
+            self.pvp["host_touch_t"] = now
+            return
+        if not self.pvp_v2():
+            return
+        p = self.pvp
+        if now - p["kick_t"] > NET_KICK_GAP:
+            p["kick_id"] += 1                                  # a new kick (not the same dribble)
+        p["kick_t"] = now
+        if now - p["kick_send_t"] >= 1.0 / NET_ME_HZ:
+            p["kick_send_t"] = now
+            b = self.ball_state()
+            self.net.send({"t": "kick", "id": p["kick_id"], "b": [WIDTH - b[0], b[1], -b[2], b[3], -b[4], b[5]],
+                           "lat": round(self.net_lat(), 1)})
+
+    def take_guest_kick(self, msg):
+        """Host: the guest touched the ball on his screen - it's his kick, if it could be."""
+        p = self.pvp
+        try:
+            kid = int(msg.get("id", 0))
+            b = msg.get("b")
+            lat = float(msg.get("lat", 0.0)) + self.net_lat()
+        except (TypeError, ValueError):
+            return
+        if not b or len(b) < 6 or kid < p["kick_seen"]:
+            return
+        now = self.net_now()
+        if now - p["host_touch_t"] < NET_HOST_GUARD and kid > p["kick_seen"]:
+            return                                             # I touched it first: mine
+        if (self.cpu.pos - Vector2(b[0], b[1])).length() > NET_KICK_REACH:
+            return                                             # his doll isn't near it here: no
+        bx, by = self.ahead(b, lat * 0.5)
+        self.ball.pos.update(bx, by)
+        self.ball.vel.update(b[2], b[3])
+        self.ball.spin = b[4]
+        self.ball.frozen = False
+        self.last_touch = "away"
+        p["kick_seen"] = kid
 
     def doll_state(self, d):
         return [round(d.pos.x, 1), round(d.pos.y, 1), round(d.vel.x, 1), round(d.vel.y, 1),
                 round(d.angle, 3), round(d.av, 3)]
 
     def send_snapshot(self):
-        b = self.ball
-        self.net.send({
+        msg = {
             "t": "snap",
             "p": self.doll_state(self.player), "c": self.doll_state(self.cpu),
-            "b": [round(b.pos.x, 1), round(b.pos.y, 1), round(b.vel.x, 1), round(b.vel.y, 1),
-                  round(b.spin, 1), 1 if b.frozen else 0],
+            "b": self.ball_state(),
             "s": [self.score_home, self.score_away],
             "k": round(self.match_time, 2), "h": self.half, "st": self.state,
-        })
+            "ka": self.pvp.get("kick_seen", 0), "lat": round(self.net_lat(), 1),
+            "ls": self.last_scorer if self.state == GOAL else None,
+        }
+        stun = getattr(self.cpu, "throw_timer", 0.0)
+        if stun > 0.05:
+            msg["gs"] = round(stun, 2)                       # a PlayStyle froze the guest (TRICKSTER)
+        self.net.send(msg)
 
     def apply_doll(self, d, v, pull):
         if not v or len(v) < 6:
@@ -16431,7 +16764,81 @@ class Game:
         return [WIDTH - v[0], v[1], -v[2], v[3], -v[4], -v[5]]
 
     def apply_snapshot(self, msg):
-        """Guest: the host's world is the real one - slide onto it rather than snapping.
+        if self.pvp_v2():
+            return self.apply_snapshot_v2(msg)
+        return self.apply_snapshot_v1(msg)
+
+    def apply_snapshot_v2(self, msg):
+        """Guest: the host's doll, the ball and the score. My own doll is mine - never pulled."""
+        p = self.pvp
+        lat = msg.get("lat", 0.0)
+        self.apply_remote_doll(self.cpu, self.flip_doll(msg.get("p")), lat)
+        gs = msg.get("gs")
+        if gs:
+            self.player.throw_timer = max(getattr(self.player, "throw_timer", 0.0), float(gs))
+        b = msg.get("b")
+        now = self.net_now()
+        mine = now - p["kick_t"] < NET_KICK_HOLD                 # I touched it a moment ago
+        p["kick_ack"] = max(p["kick_ack"], int(msg.get("ka", 0) or 0))
+        if b and len(b) >= 6 and not (mine and p["kick_ack"] < p["kick_id"]):
+            v = [WIDTH - b[0], b[1], -b[2], b[3], -b[4], b[5]]
+            try:
+                one_way = 0.5 * (float(lat or 0.0) + self.net_lat())
+            except (TypeError, ValueError):
+                one_way = self.net_lat()
+            tx, ty = self.ahead(v, one_way)
+            pull = NET_PULL_BALL * (0.5 if mine else 1.0)         # the host has my kick: ease onto it
+            if (Vector2(tx, ty) - self.ball.pos).length() > NET_SNAP_DIST or v[5]:
+                self.ball.pos.update(tx, ty)
+            else:
+                self.ball.pos.x += (tx - self.ball.pos.x) * pull
+                self.ball.pos.y += (ty - self.ball.pos.y) * pull
+            self.ball.vel.x += (v[2] - self.ball.vel.x) * 0.5
+            self.ball.vel.y += (v[3] - self.ball.vel.y) * 0.5
+            self.ball.spin = v[4]
+            self.ball.frozen = bool(v[5])
+        sc = msg.get("s")
+        if sc and len(sc) == 2:
+            sc = [sc[1], sc[0]]                                   # their goals are my goals conceded
+            scored = None
+            if sc[0] > self.score_home:
+                scored = "home"
+            elif sc[1] > self.score_away:
+                scored = "away"
+            self.score_home, self.score_away = sc[0], sc[1]
+            if scored is not None:
+                self.guest_goal(scored)
+        self.match_time = msg.get("k", self.match_time)
+        self.half = msg.get("h", self.half)
+        st = msg.get("st")
+        if st in (KICKOFF, PLAY, GOAL, FULLTIME) and getattr(self, "sub", None) is not None:
+            self.sub = None                                       # the host has kicked off the 2nd half
+            self.apply_looks()
+        if st in (KICKOFF, PLAY, GOAL, FULLTIME) and st != self.state:
+            if st == KICKOFF and self.state == GOAL:
+                self.slowmo = 1.0                                 # the host restarted: line up with him
+                self.setup_kickoff(self.last_scorer)
+            elif st == GOAL and self.state != GOAL:
+                pass                                              # guest_goal() above did it
+            else:
+                self.state = st
+            if st == FULLTIME:
+                self.finish_pvp()
+
+    def guest_goal(self, scored):
+        """Guest: the host saw it go in - the same goal moment as his."""
+        self.last_scorer = scored
+        self.own_goal = False
+        self.sfx.play("cheer", 0.9)
+        self.shake = SHAKE_CAP
+        self.slowmo = 0.22
+        self.goal_text_pop = 0.0
+        self.dragging = False
+        self.state = GOAL
+        self.state_timer = GOAL_HOLD
+
+    def apply_snapshot_v1(self, msg):
+        """Guest (older host): the host's world is the real one - slide onto it rather than snapping.
         Everything is mirrored, so the guest's own doll is always the one on the left."""
         pull = NET_LERP
         self.apply_doll(self.player, self.flip_doll(msg.get("c")), pull)   # mine = host's away doll
@@ -20744,6 +21151,11 @@ class Game:
         if not self.net.connected_hint():
             warn = self.fit_text("RECONNECTING...", self.font_s, (255, 150, 150), 400, 30)
             w.blit(warn, warn.get_rect(midtop=(WIDTH // 2, 118)))
+        elif self.pvp.get("rtt_n", 0) > 0:                 # the round trip, so a bad line is visible
+            ms = int(round(self.pvp["rtt"] / 10.0)) * 10    # (rounded: a number that flickers is noise)
+            col = (150, 230, 160) if ms < 90 else (255, 220, 120) if ms < 180 else (255, 150, 150)
+            tag = self.fit_text("PING %d MS" % ms, self.font_s, col, 300, 26)
+            w.blit(tag, tag.get_rect(midtop=(WIDTH // 2, 118)))
 
     def draw_hud(self, surface):
         self.draw_twist_hud(surface)
@@ -21059,7 +21471,9 @@ class Game:
         surface.blit(big, big.get_rect(center=(cx, cy)))
         self.centre_text(surface, f"{self.score_home}  -  {self.score_away}", self.font_l, WHITE,
                          HEIGHT * 0.52)
-        if self.state != FULLTIME:
+        if self.state != FULLTIME and self.mode == "pvp" and self.pvp_v2() and not self.pvp_host():
+            prompt = "KICK-OFF IN A MOMENT"                  # online the host's side restarts it
+        elif self.state != FULLTIME:
             prompt = "CLICK TO CONTINUE"
         elif self.mode == "club":
             prompt = "CLICK FOR THE LEAGUE TABLE"
@@ -21202,7 +21616,7 @@ def game_font(size):
 # caches the game would otherwise build the first time you walked into a screen, so by
 # the time it says READY the shop, the packs and your club are already drawn once.
 GAME_VERSION = "1.7"
-BUILD_TAG = "2026-10-08"
+BUILD_TAG = "2026-11-06c"
 LOADING_TIPS = (
     "Drag away from your player and let go - he flies toward the mouse.",
     "You can throw again in mid-air. Chain them to stay up.",
@@ -21344,6 +21758,10 @@ async def boot(selftest=False):
              ("THE SHOP", lambda: game.draw_store(game.world)),
              ("PACKS", lambda: game.draw_packs(game.world)),
              ("YOUR CLUB", lambda: game.draw_myclub(game.world)),
+             # 5 Nov: the three that still hitched the first time you met them
+             ("FLAGS", game.warm_flags),
+             ("STAR SIGNINGS", lambda: (game.warm_stars_cards(), game.draw_stars(game.world))),
+             ("THE WALKOUT", game.warm_walkout),
              ("THE PITCH", lambda: None)]
     for i, (name, work) in enumerate(steps):
         loader.label = name

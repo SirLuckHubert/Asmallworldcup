@@ -9,12 +9,12 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06b";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06b";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06b";
-import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06b";
-import { mergeIntoSaveText } from "./mail.js?v=2026-11-06b";
-import { rngBoot, rngSignedIn, rngSignedOut, rngUsername, rngSiteGifts } from "./rng.js?v=2026-11-06b";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06c";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06c";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06c";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06c";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06c";
+import { rngBoot, rngSignedIn, rngSignedOut, rngUsername, rngSiteGifts } from "./rng.js?v=2026-11-06c";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
@@ -50,6 +50,17 @@ function revealWatch(el) {
 }
 
 const DEFAULT_NOTES = [
+  {
+    date: "2026-11-06",
+    title: "Online 1v1 is fair now",
+    body: "Online, the player who found the match used to run it and the other one played a replay of it: their own throws went across the internet and back before they moved, so one of you always lagged. Now your own player is yours on both screens — he moves the moment you let go — and a ball you touch on your screen is your kick on theirs too.\n" +
+          "Goals come from one screen only, so both of you always see the same score. The goal moment moves on by itself online. Your ping is shown at the top of the pitch.",
+  },
+  {
+    date: "2026-11-06",
+    title: "Packs, Star Signings and goals: no more stutter",
+    body: "Opening a pack no longer stalls as it rips: its glow, light rays and the stadium are ready before you tap. Star Signings, its flags and every nation's flag are built on the loading screen instead of the moment you walk in, and the champion pennants stop rebuilding every frame. The darkening behind the GOAL! banner (and every other veil) is one pass over the screen instead of two.",
+  },
   {
     date: "2026-11-06",
     title: "A lot smoother in the browser",

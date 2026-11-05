@@ -2,8 +2,12 @@
 // two players. Firestore only carries the handshake (a few writes), so the match itself runs
 // peer to peer at normal game latency rather than at database speed.
 //
-// The host simulates the match and sends snapshots; the guest sends its throws. All of that
-// lives in the game — this file is the pipe.
+// Each player owns their own doll; the host owns the ball and the score. All of that lives in
+// the game — this file is the pipe. Two channels: a fast one that never waits (positions, ping:
+// a lost one is replaced 33 ms later anyway) and a reliable one for things that must arrive
+// (kicks, half time, subs, chat, "left"). Before 5 Nov everything went down the fast one, so a
+// dropped packet could swallow a sub or the message that your rival had left.
+const FAST = new Set(["snap", "me", "ping", "pong"]);
 
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDocs,
@@ -22,6 +26,7 @@ export class Net {
     this.uid = uid;
     this.pc = null;
     this.chan = null;
+    this.rel = null;               // the reliable channel (missing on an older rival's page)
     this.matchId = null;
     this.role = null;              // "host" | "guest"
     this.stop = [];                // snapshot unsubscribers
@@ -82,7 +87,9 @@ export class Net {
 
     this.pc = new RTCPeerConnection(ICE);
     this.chan = this.pc.createDataChannel("aswc", { ordered: false, maxRetransmits: 0 });
+    this.rel = this.pc.createDataChannel("aswc-rel", { ordered: true });
     this.wireChannel();
+    this.wireReliable();
 
     const matchRef = doc(this.db, "matches", this.matchId);
     const offer = await this.pc.createOffer();
@@ -152,7 +159,10 @@ export class Net {
     this.say("found", this.opponent);
 
     this.pc = new RTCPeerConnection(ICE);
-    this.pc.ondatachannel = (e) => { this.chan = e.channel; this.wireChannel(); };
+    this.pc.ondatachannel = (e) => {
+      if (e.channel.label === "aswc-rel") { this.rel = e.channel; this.wireReliable(); }
+      else { this.chan = e.channel; this.wireChannel(); }
+    };
     await this.pc.setRemoteDescription(JSON.parse(data.offer));
     const answer = await this.pc.createAnswer();
     await this.pc.setLocalDescription(answer);
@@ -213,9 +223,18 @@ export class Net {
     };
   }
 
+  wireReliable() {
+    this.rel.onmessage = (e) => {
+      let msg = null;
+      try { msg = JSON.parse(e.data); } catch (err) { return; }
+      this.onMessage(msg);
+    };
+  }
+
   send(msg) {
     if (!this.chan || this.chan.readyState !== "open") return false;
-    try { this.chan.send(JSON.stringify(msg)); return true; } catch (err) { return false; }
+    const ch = (!FAST.has(msg && msg.t) && this.rel && this.rel.readyState === "open") ? this.rel : this.chan;
+    try { ch.send(JSON.stringify(msg)); return true; } catch (err) { return false; }
   }
 
   get connected() { return !!this.chan && this.chan.readyState === "open"; }
@@ -228,6 +247,7 @@ export class Net {
     for (const off of this.stop) { try { off(); } catch (err) { /* ignore */ } }
     this.stop = [];
     if (this.chan) { try { this.chan.close(); } catch (err) { /* ignore */ } this.chan = null; }
+    if (this.rel) { try { this.rel.close(); } catch (err) { /* ignore */ } this.rel = null; }
     if (this.pc) { try { this.pc.close(); } catch (err) { /* ignore */ } this.pc = null; }
     this.tidyQueue();
   }

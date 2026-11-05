@@ -1,16 +1,18 @@
-UPDATE (6 Nov): a lot less lag in the browser + admin gifts for Scout RNG
-==========================================================================
-1. FIREBASE RULES CHANGED AGAIN - publish them first:
+UPDATE (6 Nov, build 2026-11-06c): fair online 1v1 + no stutter on packs, Star Signings, goals
+=============================================================================================
+This folder has every file from the last update too, so it works whether or not you
+uploaded that one.
+
+1. FIREBASE RULES - only if you haven't published them since the last update:
    console.firebase.google.com > asmallworldcup-8f491 > Firestore Database > Rules
    delete everything, paste ALL of firestore.rules from this folder, Publish.
-   (New: Scout RNG gifts are the admin's to write - players can't give themselves any.)
-2. Copy everything in this folder into your repo folder (GitHub Desktop > Repository >
-   Show in Explorer) and say Replace. It's only the changed files - nothing gets deleted.
+   (Same rules as the last update. Already done? Skip this step.)
+2. Open THIS folder, select everything INSIDE it (the files + the game and desktop folders),
+   copy, and paste into your repo folder (GitHub Desktop > Repository > Show in Explorer).
+   Say Replace. Don't paste the folder itself - the site only sees files at the right paths.
    If desktop/game/openingpack.mp3 is still in the repo, delete it.
-3. GitHub Desktop: summary "Optimising update + Scout RNG gifts", Commit to main, Push origin.
-4. Site: Ctrl+Shift+R, the footer should say build 2026-11-06b. Press Play.
+3. GitHub Desktop: summary "Fair online + smoother packs", Commit to main, Push origin.
+4. Wait a minute, open check.html: it should say build 2026-11-06c. Ctrl+Shift+R the site.
 
-Admin: open a player in admin.html - the new Scout RNG box gives them players, fragments
-and potions in the roll game. "Scout RNG gift to everyone" further down gives it to all.
-
-Still laggy? play.html?fps=1 shows the frame rate - send me the number (home and match).
+ONLINE: both players need the new version (refresh the page) - an old page still plays,
+the old way. Your ping shows at the top of the pitch.

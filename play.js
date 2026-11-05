@@ -10,11 +10,11 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, addDoc, query, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-11-06b";
-import { Net } from "./net.js?v=2026-11-06b";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06b";
-import { checkText } from "./words.js?v=2026-11-06b";
-import { mergeIntoSaveText } from "./mail.js?v=2026-11-06b";
+import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-11-06c";
+import { Net } from "./net.js?v=2026-11-06c";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06c";
+import { checkText } from "./words.js?v=2026-11-06c";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06c";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;
@@ -254,9 +254,14 @@ async function findMatch(wants) {
 
 function endMatch(tellThem) {
   if (net) {
-    if (tellThem) net.send({ t: "left" });
-    net.cleanup();
+    const old = net;
     net = null;
+    if (tellThem) {
+      old.send({ t: "left" });
+      setTimeout(() => old.cleanup(), 400);     // let "left" get there before the line closes
+    } else {
+      old.cleanup();
+    }
   }
   match = null;
   netState(false);
