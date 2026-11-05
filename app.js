@@ -9,12 +9,12 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06a";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06a";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06a";
-import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06a";
-import { mergeIntoSaveText } from "./mail.js?v=2026-11-06a";
-import { rngBoot, rngSignedIn, rngSignedOut, rngUsername } from "./rng.js?v=2026-11-06a";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06b";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06b";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06b";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06b";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06b";
+import { rngBoot, rngSignedIn, rngSignedOut, rngUsername, rngSiteGifts } from "./rng.js?v=2026-11-06b";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
@@ -50,6 +50,12 @@ function revealWatch(el) {
 }
 
 const DEFAULT_NOTES = [
+  {
+    date: "2026-11-06",
+    title: "A lot smoother in the browser",
+    body: "The menus do far less work every frame: backgrounds are drawn as one straight copy instead of being blended, the shop, packs, Game Box, Gauntlet and Archive no longer wash or build a full screen every frame, the card page stops drawing the screen hidden behind it, and a frame that hasn't changed isn't sent to the screen again.\n" +
+          "The flags hold still in the browser, card art and backgrounds load at the size the browser actually shows (a third less memory), and the old pack-opening music is back.",
+  },
   {
     date: "2026-11-06",
     title: "Scout RNG, and a new leaderboard",
@@ -175,8 +181,17 @@ function scoutAccount(uid) {
       const q = await getDocs(query(collection(db, "lounge"), orderBy("bestN", "desc"), limit(10)));
       return q.docs.map((d) => d.data()).filter((r) => r.bestId);
     },
+    watch(cb) {                                   // gifts the admin sends while the page is open
+      if (this._stop) this._stop();
+      this._stop = onSnapshot(ref, (s) => cb(s.exists() ? s.data() : null), () => {});
+    },
+    unwatch() { if (this._stop) { this._stop(); this._stop = null; } },
   };
 }
+// gifts for everyone (the admin console's Scout RNG panel) - readable signed out too
+if (db) onSnapshot(doc(db, "site", "scoutGifts"), (s) => {
+  rngSiteGifts(s.exists() && Array.isArray(s.data().items) ? s.data().items : []);
+}, () => {});
 
 if (auth) onAuthStateChanged(auth, async (user) => {
   if (!user) {

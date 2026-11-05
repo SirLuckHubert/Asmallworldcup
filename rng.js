@@ -12,7 +12,7 @@
 //
 // Everything runs in the browser, like the game's own save: the numbers below are the rules.
 
-import { makeMail } from "./mail.js?v=2026-11-06a";
+import { makeMail } from "./mail.js?v=2026-11-06b";
 
 export const RULES = {
   rollMs: 1000, speedMs: 500,            // roll cooldown, and with a Speed Potion
@@ -78,6 +78,7 @@ function clean(s) {
   out.packs = Math.min(RULES.packMax, out.packs);
   out.vault = Math.min(RULES.vaultCap, out.vault);
   if (out.best && !BY_ID[out.best.id]) out.best = null;
+  out.giftsSeen = (Array.isArray(s.giftsSeen) ? s.giftsSeen : []).filter((x) => typeof x === "string").slice(-200);
   return out;
 }
 
@@ -374,6 +375,51 @@ function note(text) {
   noteTimer = setTimeout(() => n.classList.remove("show"), 4200);
 }
 
+// ------------------------------------------------------------------ gifts from the admin (6 Nov)
+// The admin console writes gifts into lounge/<uid>.gifts (one player) or site/scoutGifts (everyone):
+// {id, cards: {cardId: count}, frags, potions: {lucky: n, ...}, note}. Each one lands once - its id is
+// remembered in the progress, wherever that progress is played next.
+export function applyGifts(list) {
+  if (!S || !Array.isArray(list) || !list.length) return 0;
+  const seen = new Set(S.giftsSeen || []);
+  const got = [];
+  for (const g of list.slice().reverse()) {             // oldest first
+    if (!g || typeof g.id !== "string" || seen.has(g.id)) continue;
+    seen.add(g.id);
+    S.giftsSeen.push(g.id);
+    for (const [id, n] of Object.entries(g.cards || {})) {
+      const c = BY_ID[id];
+      if (!c) continue;
+      const k = Math.max(1, Math.min(99, Math.floor(Number(n) || 1)));
+      const first = !S.owned[id];
+      S.owned[id] = (S.owned[id] || 0) + k;
+      if (first && S.squad.length < RULES.squad) S.squad.push(id);
+      got.push(c.name + (k > 1 ? " ×" + k : ""));
+    }
+    const fr = Math.max(0, Math.min(10000000, Math.floor(Number(g.frags) || 0)));
+    if (fr) { S.frags += fr; got.push(fr.toLocaleString() + " fragments"); }
+    for (const [k, n] of Object.entries(g.potions || {})) {
+      if (!POTIONS[k]) continue;
+      const q = Math.max(0, Math.min(999, Math.floor(Number(n) || 0)));
+      if (q) { S.inv[k] = (S.inv[k] || 0) + q; got.push(q + "× " + POTIONS[k].name); }
+    }
+  }
+  S.giftsSeen = S.giftsSeen.slice(-200);
+  if (got.length) {
+    note("A gift from Hubi: " + got.join(", "));
+    indexKey = "";
+    changed(true);
+    draw();
+  }
+  return got.length;
+}
+let siteGifts = [];
+export async function rngSiteGifts(list) {
+  await rngBoot();
+  siteGifts = Array.isArray(list) ? list : [];
+  applyGifts(siteGifts);
+}
+
 // ------------------------------------------------------------------ drawing
 const bottle = (col) =>
   '<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M9 2h6v6l5 7v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V15l5-7z" fill="' + col +
@@ -556,7 +602,7 @@ async function boot() {
   const root = $("scout");
   if (!root) return;
   try {
-    CARDS = await (await fetch("rng_cards.json?v=2026-11-06a")).json();
+    CARDS = await (await fetch("rng_cards.json?v=2026-11-06b")).json();
   } catch (err) {
     root.querySelector(".sc-stage").innerHTML = '<p class="muted">Scout RNG couldn\'t load its cards. Reload the page.</p>';
     return;
@@ -570,7 +616,7 @@ async function boot() {
   try {
     // only offer players the game on this site knows (cards.json is its card list): a card the game
     // doesn't have would be thrown away when the mail is claimed
-    const known = new Set((await (await fetch("cards.json?v=2026-11-06a")).json()).map((c) => c.id));
+    const known = new Set((await (await fetch("cards.json?v=2026-11-06b")).json()).map((c) => c.id));
     if (known.size) EXCHANGE = EXCHANGE.filter((c) => known.has(c.id));
   } catch (err) { /* no list: offer them all */ }
 
@@ -610,10 +656,11 @@ export async function rngSignedIn(account) {
   saveLocal();
   const guest = readLocal("aswc_scout_v1");
   api = account;
-  let cloud = null;
+  let cloud = null, gifts = [];
   try {
     const d = await api.load();
     if (d && typeof d.state === "string") cloud = JSON.parse(d.state);
+    if (d && Array.isArray(d.gifts)) gifts = d.gifts;
   } catch (err) { console.warn("scout load failed", err); }
   const mine = readLocal(localKey());
   const pickOf = [cloud, mine, guest].filter(Boolean).sort((a, b) => (b.rolls || 0) - (a.rolls || 0))[0];
@@ -623,6 +670,9 @@ export async function rngSignedIn(account) {
   }
   saveLocal();
   changed(true);
+  applyGifts(gifts);
+  applyGifts(siteGifts);
+  if (api.watch) api.watch((d) => { if (d && Array.isArray(d.gifts)) applyGifts(d.gifts); });
   indexKey = "";
   draw();
   drawBoard();
@@ -632,8 +682,10 @@ export async function rngSignedOut() {
   await rngBoot();
   if (!CARDS.length) return;
   saveLocal();
+  if (api && api.unwatch) api.unwatch();
   api = null;
   S = clean(readLocal(localKey()));
+  applyGifts(siteGifts);
   indexKey = "";
   draw();
   drawBoard();

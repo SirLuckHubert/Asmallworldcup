@@ -6,7 +6,7 @@
    ========================================================================= */
 
 :root {
-  --build: "2026-11-06a";        /* check.html and app.js read this */
+  --build: "2026-11-06b";        /* check.html and app.js read this */
 
   /* surfaces: the night sky over the stadium */
   --bg: #050b18;
@@ -781,7 +781,7 @@ table.players tbody tr:hover { background: rgba(255, 255, 255, .035); }
 table.players tr.banned td { color: #ffb8b2; }
 table.players td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-input[type="text"], input[type="number"], input[type="search"], select, textarea {
+input[type="text"], input[type="number"], input[type="search"], input:not([type]), select, textarea {
   font: inherit; font-size: 15px;
   background: rgba(5, 11, 24, .75);
   color: var(--text);

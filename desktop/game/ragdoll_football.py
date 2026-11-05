@@ -873,6 +873,31 @@ def scratch(size, slot=0):
     return surf
 
 
+def opaque(img, under=(8, 10, 18)):
+    """A full-screen picture with no per-pixel alpha: blitting it is a straight copy instead of a
+    blend of two million pixels (5 Nov optimising pass - the browser paid for every one)."""
+    if img is None:
+        return None
+    out = pygame.Surface(img.get_size()).convert()
+    out.fill(under)
+    out.blit(img, (0, 0))
+    return out
+
+
+_TINTED = {}
+
+
+def tinted(img, colour, key):
+    """img with a translucent colour washed over it, made once (it used to be washed every frame)."""
+    hit = _TINTED.get(key)
+    if hit is not None and hit[0] is img:
+        return hit[1]
+    out = opaque(img)
+    wash(out, colour)
+    _TINTED[key] = (img, out)
+    return out
+
+
 def wash(target, colour, rect=None, slot=0):
     """A flat translucent wash over the target.
 
@@ -3773,6 +3798,9 @@ WC_SPECIAL = {}
 # FLAG_FRAMES steps; only the big card moves (cached grids keep frame 0, so they stay cheap).
 FLAG_FRAMES = 20
 FLAG_FPS = 14.0
+# 5 Nov: in the browser the flags hold still (frame 0) - every new frame of cloth is a few thousand
+# small blits and a lot of maths to build, and the browser game lagged (Hubi: "it lags so much").
+FLAG_STILL = WEB_BUILD
 # 26 Oct: Hubi - "the flag doesn't look realistic enough". The old flag was the picture shifted
 # up and down on one sine with a faint light strip: it read as a picture wobbling, not cloth.
 # What makes cloth read as cloth, in order:
@@ -5676,7 +5704,7 @@ class Game:
         self.stadium = 0
         self._bg_cache = {}
         self.background = self._build_background()
-        self.shop_bg = load_pixel("shop_bg", (WIDTH, HEIGHT), quiet=True)
+        self.shop_bg = opaque(load_pixel("shop_bg", (WIDTH, HEIGHT), quiet=True))
 
         self.ball = Ball()
         self.player = Player(WIDTH * 0.5 - 430, 1, HOME_KIT)
@@ -5838,7 +5866,7 @@ class Game:
         self.slides = [load_pixel("slide_%d" % i, (560, 680), quiet=True) for i in (1, 2, 3, 4, 5)]
         self.menu_page = "main"
         self.wc_badge = load_pixel("wc_badge", (240, 280), fit=True, quiet=True)
-        self.event_bg = load_pixel("event_bg", (WIDTH, HEIGHT), quiet=True)
+        self.event_bg = opaque(load_pixel("event_bg", (WIDTH, HEIGHT), quiet=True))
         self.box_art = load_pixel("box_neymar", (330, 462), fit=True, quiet=True)
         self.event_spin = None
         self.event_popup = None
@@ -5847,7 +5875,7 @@ class Game:
         self.star_bg = load_pixel("star_bg", (WIDTH, HEIGHT), quiet=True)
         self.star_pack = load_pixel("pack_star", (330, 462), fit=True, quiet=True)
         self.wg_pack = load_pixel("pack_wg", (330, 462), fit=True, quiet=True)
-        self.essence_bg = load_pixel("essence_bg", (WIDTH, HEIGHT), quiet=True)
+        self.essence_bg = opaque(load_pixel("essence_bg", (WIDTH, HEIGHT), quiet=True))
         self.tut = None
         self.rookie_sel = None
         self.time_scale = 1.0
@@ -6793,7 +6821,9 @@ class Game:
     # ---- drawing -----------------------------------------
     def draw(self):
         w = self.world
-        if self.state == SELECT:
+        if self.card_detail is not None and self.state not in (PLAY, KICKOFF, GOAL):
+            pass                                   # the card's page fills the screen: nothing under it shows
+        elif self.state == SELECT:
             self.draw_select(w)
         elif self.state == TITLE:
             self.draw_title(w)
@@ -9301,10 +9331,7 @@ class Game:
         t = pygame.time.get_ticks() * 0.001
         run = self.gt_run()
         G = self.gt()
-        w.blit(self.home_bg(), (0, 0))
-        tint = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        tint.fill((60, 0, 10, 60))
-        w.blit(tint, (0, 0))
+        w.blit(tinted(self.home_bg(), (60, 0, 10, 60), "gauntlet"), (0, 0))   # was a new full-screen surface every frame
         self.draw_glass(w, pygame.Rect(24, 20, WIDTH - 48, 92), radius=24, alpha=120)
         self.draw_glass_back(w, mouse)
         title = self.home_gold("THE GAUNTLET", 52)
@@ -10737,7 +10764,7 @@ class Game:
             live_over = True
         elif flagcard:                                     # the big card: the full-size flag
             live = rect.w >= self.BIG_CARD_W and not dim and not baking
-            f = int(pygame.time.get_ticks() * 0.001 * FLAG_FPS) % FLAG_FRAMES if live else 0
+            f = int(pygame.time.get_ticks() * 0.001 * FLAG_FPS) % FLAG_FRAMES if live and not FLAG_STILL else 0
             tpl = self.flag_card(key, rect.w, rect.h, f)
         else:
             tpl = self.card_template(key, rect.w, rect.h)
@@ -11265,7 +11292,7 @@ class Game:
         if key.startswith(("flag_", "flagb_", "flagsig_", "flagwg", "flagholo_")):
             code = key.split("_", 1)[1]
             beat = int(pygame.time.get_ticks() * 0.001 * FLAG_FPS)
-            f = (beat + sum(map(ord, code)) * 7) % FLAG_FRAMES      # every nation on its own beat
+            f = 0 if FLAG_STILL else (beat + sum(map(ord, code)) * 7) % FLAG_FRAMES   # every nation on its own beat
             stage = int(key[6]) if key.startswith("flagwg") else "H" if key.startswith("flagholo_") else None
             if stage == 3:                                   # LIMITLESS: an aura behind the card
                 self.draw_aura_glow(surf, rect, card["id"], WG_EVO_AURA)
@@ -13435,10 +13462,7 @@ class Game:
 
     # ---- drawing ----------------------------------------------------------------------
     def draw_sub(self, w):
-        w.blit(self.select_bg, (0, 0))
-        veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        veil.fill((4, 8, 20, 150))
-        w.blit(veil, (0, 0))
+        w.blit(tinted(self.select_bg, (4, 8, 20, 150), "subs"), (0, 0))
         if self.sub["phase"] == "reveal":
             self.draw_sub_reveal(w)
             return
@@ -15240,11 +15264,19 @@ class Game:
     def wk_idle(self, w, pr, art, theme, tt, cx, cy):
         """The pack waiting for a tap: in the dark, in a spotlight, light leaking from its seam."""
         c, m, e, acc = self.WK_THEME[theme]
-        w.fill(_shade(e, 0.16))
-        cone = self.wk_soft((1200, 1800), m, 130)
-        w.blit(cone, cone.get_rect(midtop=(cx, -520)))
-        floor = self.wk_soft((780, 170), c, 130)
-        w.blit(floor, floor.get_rect(center=(cx, cy + 330)))
+        stage = self.__dict__.setdefault("_wk_stage", {})
+        sk = (theme, int(cx), int(cy))
+        if sk not in stage:
+            st = pygame.Surface((WIDTH, HEIGHT)).convert()
+            st.fill(_shade(e, 0.16))
+            cone = self.wk_soft((1200, 1800), m, 130)
+            st.blit(cone, cone.get_rect(midtop=(cx, -520)))
+            floor = self.wk_soft((780, 170), c, 130)
+            st.blit(floor, floor.get_rect(center=(cx, cy + 330)))
+            if len(stage) > 6:
+                stage.clear()
+            stage[sk] = st
+        w.blit(stage[sk], (0, 0))
         top, body, pts, seam = self.wk_pack_pieces(pr, art, theme)
         rect = pygame.Rect((0, 0), self.WK_PACK)
         rect.center = (cx, cy)
@@ -16647,6 +16679,15 @@ class Game:
         return "{:,}".format(int(n))
 
     def draw_sp_icon(self, w, centre, r=20):
+        cache = self.__dict__.setdefault("_sp_icons", {})
+        img = cache.get(r)
+        if img is None:
+            img = pygame.Surface((2 * r + 2, 2 * r + 2), pygame.SRCALPHA)
+            self.draw_sp_icon_raw(img, (r + 1, r + 1), r)
+            cache[r] = img
+        w.blit(img, (int(centre[0]) - r - 1, int(centre[1]) - r - 1))
+
+    def draw_sp_icon_raw(self, w, centre, r=20):
         x, y = int(centre[0]), int(centre[1])
         pygame.draw.circle(w, (96, 34, 170), (x, y), r)
         pygame.draw.circle(w, STAR_LILAC, (x, y), r, max(2, r // 6))
@@ -17029,10 +17070,17 @@ class Game:
 
     def ss_players(self):
         S = self.ss()
+        key = (json.dumps(S["filters"], sort_keys=True, default=str), bool(S["watch_only"]),
+               tuple(self.save.get("watchlist", [])), json.dumps(S["sort"], default=str))
+        hit = self.__dict__.get("_ss_players")
+        if hit is not None and hit[0] == key:
+            return hit[1]
         watch = set(self.save.get("watchlist", []))
         cards = [c for c in self.ss_catalogue() if self.ss_match(c, S["filters"])
                  and (not S["watch_only"] or c["id"] in watch)]
-        return self.ss_sorted(cards, S["sort"])
+        out = self.ss_sorted(cards, S["sort"])
+        self._ss_players = (key, out)
+        return out
 
     def ss_mine(self):
         S = self.ss()
@@ -19103,8 +19151,7 @@ class Game:
 
     def draw_archive(self, w):
         mouse = pygame.mouse.get_pos()
-        w.blit(self.home_bg(), (0, 0))
-        wash(w, (30, 18, 0, 70))
+        w.blit(tinted(self.home_bg(), (30, 18, 0, 70), "archive"), (0, 0))
         self.draw_glass(w, pygame.Rect(24, 20, WIDTH - 48, 92), radius=24, alpha=120)
         self.draw_glass_back(w, mouse)
         title = self.home_gold("SIGNATURE ARCHIVE", 52)
@@ -19398,7 +19445,7 @@ class Game:
         bgs = self.__dict__.setdefault("_box_bgs", {})
         key = self.box_entry()[0]
         if key not in bgs:                                 # each box its own flag (1 Nov)
-            bgs[key] = (load_pixel("event_bg_" + key, (WIDTH, HEIGHT), quiet=True) if key != "neymar" else None) \
+            bgs[key] = opaque(load_pixel("event_bg_" + key, (WIDTH, HEIGHT), quiet=True) if key != "neymar" else None) \
                 or self.event_bg
         if bgs[key] is not None:
             w.blit(bgs[key], (0, 0))
@@ -20007,7 +20054,7 @@ class Game:
             return hit
         rnd = random.Random(7)
         night = self.stadiums[2] if len(self.stadiums) > 2 else (self.stadiums[0] if self.stadiums else None)
-        bg = pygame.Surface((WIDTH, HEIGHT))
+        bg = pygame.Surface((WIDTH, HEIGHT)).convert()
         bg.fill((10, 16, 40))
         if night is not None:
             k = HEIGHT / float(night.get_height())
@@ -20041,6 +20088,7 @@ class Game:
             pygame.draw.rect(vig, (2, 4, 14, int(150 * (1 - k / 16.0) ** 2.2)), (k * 2, k, 96 - k * 4, 54 - k * 2), 2)
         bg.blit(pygame.transform.smoothscale(vig, (WIDTH, HEIGHT)), (0, 0))
         bg.blit(self.home_vgrad((WIDTH, 340), (4, 8, 24, 0), (4, 8, 24, 235)), (0, HEIGHT - 340))   # the floor
+        bg = opaque(bg)                                 # whatever smoothscale handed back: a straight copy to draw
         self._home_bg = bg
         self._home_flashes = [(rnd.uniform(0, WIDTH), rnd.uniform(280, 700), rnd.uniform(6, 14), rnd.uniform(0, 6.3))
                               for _ in range(30)]
@@ -20083,6 +20131,10 @@ class Game:
 
     def draw_glass(self, w, rect, **kw):
         g = self.home_glass(rect, **kw)
+        if WEB_BUILD:                       # the browser: only the panel and the inner edge of its shadow
+            m = 14
+            w.blit(g, (rect.x - m, rect.y - m), pygame.Rect(40 - m, 40 - m, rect.w + 2 * m, rect.h + 2 * m))
+            return
         w.blit(g, (rect.x - 40, rect.y - 40))
 
     def home_gold(self, text, height):
@@ -20156,6 +20208,24 @@ class Game:
         return out
 
     # ---- the hero ------------------------------------------------------------------------
+    def home_base_web(self, card):
+        """Browser only: home_bg + the watermark + the hero (still, no bob) as one cached surface."""
+        key = card["id"] if card is not None else None
+        hit = self.__dict__.get("_home_base_web")
+        if hit is not None and hit[0] == key:
+            return hit[1]
+        base = self.home_bg().copy()
+        if card is not None:
+            base.blit(self.home_watermark(card), (70, 160))
+            hero = self.home_hero(card)
+            if hero is not None:
+                big, shadow = hero
+                fx, fy = 330, HEIGHT - big.get_height() + 40
+                base.blit(shadow, (fx + 30, fy + 26))
+                base.blit(big, (fx, fy))
+        self._home_base_web = (key, base)
+        return base
+
     def home_watermark(self, card):
         """His surname, huge and faint, behind him (cached)."""
         cache = self.__dict__.setdefault("_home_wm", {})
@@ -20233,14 +20303,19 @@ class Game:
         L = self.home_layout()
         mouse = pygame.mouse.get_pos()
         t = pygame.time.get_ticks() * 0.001
-        w.blit(self.home_bg(), (0, 0))
-        for x, y, s, ph in self.__dict__.get("_home_flashes", ()):       # camera flashes in the crowd
+        card = self.home_hero_card()
+        if WEB_BUILD:
+            # the browser: the stadium, the name behind the hero and the hero himself are one picture,
+            # built once - three full-screen-sized blits a frame were most of the home screen's cost
+            w.blit(self.home_base_web(card), (0, 0))
+        else:
+            w.blit(self.home_bg(), (0, 0))
+        for x, y, s, ph in (() if WEB_BUILD else self.__dict__.get("_home_flashes", ())):   # camera flashes
             a = 0.5 + 0.5 * math.sin(t * 1.7 + ph * 3.0)
             if a > 0.82:
                 self.draw_glint(w, x, y, s * (a - 0.82) / 0.18 * 1.3)
         # the hero, a faint name behind him
-        card = self.home_hero_card()
-        if card is not None:
+        if card is not None and not WEB_BUILD:
             w.blit(self.home_watermark(card), (70, 160))
             hero = self.home_hero(card)
             if hero is not None:
@@ -21070,19 +21145,24 @@ class Game:
             if autoplay and self.state == PLAY and frames % 45 == 0:
                 target = self.ball.pos + Vector2(-60, -120)
                 self.release_throw(target)
+            drew = True
             if WEB_BUILD:
                 try:
                     self.update(dt)
                     if self.should_draw():
                         self.draw()
                     else:
+                        drew = False
                         self.warm_step()
                 except Exception as exc:                   # grey screens tell you nothing
                     self.show_crash(exc)
             else:
                 self.update(dt)
                 self.draw()
-            pygame.display.flip()
+            if drew:
+                # 5 Nov: a menu frame we didn't paint is the same picture - don't send it to the
+                # canvas again (in the browser every flip is a full upload of the frame)
+                pygame.display.flip()
             self.sfx.pump()                # music swaps land here, behind the new screen
             frames += 1
             if max_frames is not None and frames >= max_frames:

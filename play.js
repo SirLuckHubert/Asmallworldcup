@@ -10,11 +10,11 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, addDoc, query, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-11-06a";
-import { Net } from "./net.js?v=2026-11-06a";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06a";
-import { checkText } from "./words.js?v=2026-11-06a";
-import { mergeIntoSaveText } from "./mail.js?v=2026-11-06a";
+import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-11-06b";
+import { Net } from "./net.js?v=2026-11-06b";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06b";
+import { checkText } from "./words.js?v=2026-11-06b";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06b";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;

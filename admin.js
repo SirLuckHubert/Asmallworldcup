@@ -9,11 +9,11 @@ import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
   serverTimestamp, query, orderBy, limit, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-11-06a";
-import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-11-06a";
-import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-11-06a";
-import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06a";
-import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-11-06a";
+import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-11-06b";
+import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-11-06b";
+import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-11-06b";
+import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06b";
+import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-11-06b";
 
 const $ = (id) => document.getElementById(id);
 const fb = initializeApp(firebaseConfig);
@@ -53,6 +53,7 @@ onAuthStateChanged(auth, async (user) => {
   await loadPoll();
   await loadReports();
   await loadBroadcast();
+  loadAllScout();
   await loadChat();
 });
 
@@ -175,6 +176,7 @@ async function openPlayer(uid) {
   $("editHint").textContent = p.banned ? "This account is banned." : "";
   drawAdminTitles(p);
   mailCountLine(p);
+  loadScout(uid);
   $("editor").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -798,4 +800,114 @@ $("addNote").onclick = async () => {
   $("noteTitle").value = "";
   $("noteBody").value = "";
   await writeNotes("Posted");
+};
+
+
+// ---------------------------------------------------------------- Scout RNG gifts (6 Nov)
+// One player: lounge/<uid>.gifts. Everyone: site/scoutGifts.items. The site applies each gift once
+// (rng.js applyGifts) - players, fragments, potions, straight into the roll game.
+let scoutCards = [];
+async function loadScoutCards() {
+  if (scoutCards.length) return;
+  try { scoutCards = await (await fetch("rng_cards.json")).json(); } catch (err) { scoutCards = []; }
+  const list = $("scoutList");
+  list.textContent = "";
+  for (const c of scoutCards.slice().sort((a, b) => b.n - a.n)) {
+    const o = document.createElement("option");
+    o.value = `${c.name} (${c.r} ${c.tier}, 1 in ${c.n.toLocaleString()}) [${c.id}]`;
+    list.appendChild(o);
+  }
+}
+function scoutIdFrom(text) {
+  const m = /\[([^\]]+)\]\s*$/.exec(text || "");
+  const id = m ? m[1] : (text || "").trim();
+  return scoutCards.some((c) => c.id === id) ? id : null;
+}
+function scoutGift(prefix) {
+  const raw = $(prefix + "Card").value.trim();
+  const id = raw ? scoutIdFrom(raw) : null;
+  if (raw && !id) { toast("Pick a player from the list", 3500); return null; }
+  const gift = { id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                 at: new Date().toISOString().slice(0, 10), cards: {}, frags: 0, potions: {} };
+  if (id) gift.cards[id] = Math.max(1, Math.min(99, parseInt($(prefix + "Count").value, 10) || 1));
+  gift.frags = Math.max(0, parseInt($(prefix + "Frags").value, 10) || 0);
+  const pot = $(prefix + "Potion").value;
+  if (pot) gift.potions[pot] = Math.max(1, Math.min(999, parseInt($(prefix + "PotionN").value, 10) || 1));
+  if (!id && !gift.frags && !pot) { toast("Nothing to give yet", 3000); return null; }
+  return gift;
+}
+function giftLine(g) {
+  const bits = [];
+  for (const [id, n] of Object.entries(g.cards || {})) {
+    const c = scoutCards.find((x) => x.id === id);
+    bits.push((c ? c.name : id) + (n > 1 ? " ×" + n : ""));
+  }
+  if (g.frags) bits.push(g.frags.toLocaleString() + " fragments");
+  for (const [k, n] of Object.entries(g.potions || {})) bits.push(n + "× " + k);
+  return (g.at ? g.at + " — " : "") + bits.join(", ");
+}
+async function loadScout(uid) {
+  await loadScoutCards();
+  $("scoutInfo").textContent = "…";
+  $("scoutGiven").textContent = "";
+  try {
+    const s = await getDoc(doc(db, "lounge", uid));
+    if (!s.exists()) { $("scoutInfo").textContent = "hasn't played Scout RNG yet"; return; }
+    const d = s.data();
+    let st = {};
+    try { st = JSON.parse(d.state || "{}"); } catch (err) { st = {}; }
+    const best = d.bestId ? (scoutCards.find((c) => c.id === d.bestId) || {}).name || d.bestId : "—";
+    $("scoutInfo").textContent = `${(d.rolls || 0).toLocaleString()} rolls · ${Object.keys(st.owned || {}).length}/` +
+      `${scoutCards.length} scouted · ${Math.floor(st.frags || 0).toLocaleString()} fragments · best ${best}`;
+    const g = Array.isArray(d.gifts) ? d.gifts : [];
+    if (g.length) $("scoutGiven").textContent = "Given before: " + g.slice(0, 5).map(giftLine).join(" | ");
+  } catch (err) {
+    $("scoutInfo").textContent = "couldn't read it: " + (err.code || err);
+  }
+}
+$("scoutSend").onclick = async () => {
+  if (!current) return;
+  const gift = scoutGift("scout");
+  if (!gift) return;
+  try {
+    const ref = doc(db, "lounge", current);
+    const s = await getDoc(ref);
+    const old = s.exists() && Array.isArray(s.data().gifts) ? s.data().gifts : [];
+    await setDoc(ref, { gifts: [gift].concat(old).slice(0, 30), updatedAt: serverTimestamp() }, { merge: true });
+    toast("Sent to their Scout RNG: " + giftLine(gift));
+    $("scoutCard").value = ""; $("scoutFrags").value = "0"; $("scoutPotion").value = "";
+    loadScout(current);
+  } catch (err) {
+    toast("Couldn't send it: " + (err.code || err), 4500);
+  }
+};
+let allScout = [];
+async function loadAllScout() {
+  await loadScoutCards();
+  try {
+    const s = await getDoc(doc(db, "site", "scoutGifts"));
+    allScout = s.exists() && Array.isArray(s.data().items) ? s.data().items : [];
+  } catch (err) { allScout = []; }
+  const ul = $("allScoutList");
+  ul.textContent = "";
+  if (!allScout.length) { ul.innerHTML = "<li>No gifts for everyone at the moment.</li>"; return; }
+  for (const g of allScout) { const li = document.createElement("li"); li.textContent = giftLine(g); ul.appendChild(li); }
+}
+$("allScoutSend").onclick = async () => {
+  const gift = scoutGift("allScout");
+  if (!gift) return;
+  if (!confirm("Give everyone " + giftLine(gift) + "?")) return;
+  try {
+    await setDoc(doc(db, "site", "scoutGifts"), { items: [gift].concat(allScout).slice(0, 20), at: serverTimestamp() });
+    toast("Everyone gets it the next time they open the site");
+    $("allScoutCard").value = ""; $("allScoutFrags").value = "0"; $("allScoutPotion").value = "";
+    loadAllScout();
+  } catch (err) { toast("Couldn't send it: " + (err.code || err), 4500); }
+};
+$("allScoutClear").onclick = async () => {
+  if (!confirm("Remove every Scout RNG gift for everyone? Anyone who already got one keeps it.")) return;
+  try {
+    await setDoc(doc(db, "site", "scoutGifts"), { items: [], at: serverTimestamp() });
+    loadAllScout();
+  } catch (err) { toast("Couldn't clear: " + (err.code || err), 4500); }
 };

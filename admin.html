@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2026-11-06a">
+<link rel="stylesheet" href="style.css?v=2026-11-06b">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23000'/><rect x='9' y='12' width='14' height='10' rx='2' fill='%23fff'/></svg>">
 </head>
 <body>
@@ -112,6 +112,7 @@
           <input list="cardList" id="cardPick" placeholder="Pedro Neto">
         </label>
         <datalist id="cardList"></datalist>
+<datalist id="scoutList"></datalist>
         <button class="btn btn-sm btn-gold" id="giveCard">Give card</button>
         <label class="field">Coins <input type="number" id="coins" value="1000" style="width:130px"></label>
         <button class="btn btn-sm" id="giveCoins">Add coins</button>
@@ -144,6 +145,32 @@
           <label class="field">Star points <input type="number" id="mailSp" value="0" style="width:130px"></label>
           <button class="btn btn-sm btn-primary" id="mailSend">Send</button>
         </div>
+      </div>
+
+      <!-- Scout RNG (6 Nov): players, fragments and potions straight into their roll game -->
+      <div class="card" style="margin:0 0 18px; padding:16px 18px">
+        <div class="row" style="justify-content:space-between; margin-bottom:6px">
+          <h3 style="margin:0; font-size:20px">Scout RNG</h3>
+          <span class="muted" id="scoutInfo">—</span>
+        </div>
+        <p class="muted" style="margin:0 0 10px; font-size:13.5px">
+          Lands in their roll game the next time it's open (straight away if it is). Scout RNG players
+          only live in the roll game - to give a real card, use the mail above.</p>
+        <div class="row" style="align-items:flex-end">
+          <label class="field" style="flex:1 1 260px">Player
+            <input list="scoutList" id="scoutCard" placeholder="none">
+          </label>
+          <label class="field">How many <input type="number" id="scoutCount" value="1" min="1" max="99" style="width:90px"></label>
+          <label class="field">Fragments <input type="number" id="scoutFrags" value="0" min="0" style="width:120px"></label>
+          <label class="field">Potion
+            <select id="scoutPotion"><option value="">none</option><option value="lucky">Lucky (2x)</option>
+              <option value="super">Super Lucky (5x)</option><option value="mega">Mega Lucky (10x)</option>
+              <option value="speed">Speed</option><option value="miracle">Miracle (100x, 5 rolls)</option></select>
+          </label>
+          <label class="field">× <input type="number" id="scoutPotionN" value="1" min="1" max="999" style="width:80px"></label>
+          <button class="btn btn-sm btn-primary" id="scoutSend">Give</button>
+        </div>
+        <p class="muted" id="scoutGiven" style="margin:10px 0 0; font-size:13px"></p>
       </div>
 
       <label class="field">Save file (JSON)
@@ -208,6 +235,28 @@
     </div>
 
     <div class="panel">
+      <h2>Scout RNG gift to everyone</h2>
+      <p class="muted" style="margin:0 0 10px">Every Scout RNG player gets it once - signed in or not - the next time
+        the site is open. The newest 20 are kept.</p>
+      <div class="row" style="align-items:flex-end">
+        <label class="field" style="flex:1 1 260px">Player
+          <input list="scoutList" id="allScoutCard" placeholder="none">
+        </label>
+        <label class="field">How many <input type="number" id="allScoutCount" value="1" min="1" max="99" style="width:90px"></label>
+        <label class="field">Fragments <input type="number" id="allScoutFrags" value="0" min="0" style="width:120px"></label>
+        <label class="field">Potion
+          <select id="allScoutPotion"><option value="">none</option><option value="lucky">Lucky (2x)</option>
+            <option value="super">Super Lucky (5x)</option><option value="mega">Mega Lucky (10x)</option>
+            <option value="speed">Speed</option><option value="miracle">Miracle (100x, 5 rolls)</option></select>
+        </label>
+        <label class="field">× <input type="number" id="allScoutPotionN" value="1" min="1" max="999" style="width:80px"></label>
+        <button class="btn btn-sm btn-primary" id="allScoutSend">Give everyone</button>
+        <button class="btn btn-sm btn-danger" id="allScoutClear">Remove all</button>
+      </div>
+      <ul class="muted" id="allScoutList" style="margin:12px 0 0; padding-left:18px; line-height:1.8"></ul>
+    </div>
+
+    <div class="panel">
       <h2>Mail to everyone</h2>
       <p class="muted" style="margin:0 0 12px">Goes to every player's inbox the next time they
          open the game — including new players, once. Good for telling people about the game.</p>
@@ -249,6 +298,6 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="admin.js?v=2026-11-06a"></script>
+<script type="module" src="admin.js?v=2026-11-06b"></script>
 </body>
 </html>
