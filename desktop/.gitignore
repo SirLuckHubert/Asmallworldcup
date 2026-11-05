@@ -1,0 +1,7 @@
+# test output and Python caches - never upload these
+testing/out/
+__pycache__/
+*.pyc
+# your own save (keep it on your computer)
+game/save.json
+save.json

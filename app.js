@@ -9,11 +9,12 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-10-02b";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-10-02b";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-10-02b";
-import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-10-02b";
-import { mergeIntoSaveText } from "./mail.js?v=2026-10-02b";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06a";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06a";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06a";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06a";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06a";
+import { rngBoot, rngSignedIn, rngSignedOut, rngUsername } from "./rng.js?v=2026-11-06a";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
@@ -50,30 +51,44 @@ function revealWatch(el) {
 
 const DEFAULT_NOTES = [
   {
-    date: "2026-09-25",
-    title: "Smoother, and no more misclicks",
-    body: "Opening a crate, scoring and the card menus were rebuilding the whole screen every frame. They don't any more — the heaviest frame of a pack opening now costs about a twentieth of what it did.\n" +
-          "A screen that has just opened ignores clicks for 0.8s, so a double-click can't fire you through it — you can't skip a goal celebration by accident either. Throwing on the pitch is as instant as ever.",
+    date: "2026-11-06",
+    title: "Scout RNG, and a new leaderboard",
+    body: "Scout RNG is on the site: roll for any of the 266 players, each one a 1-in-something, no sign-in needed. A free pack every 30 seconds with Lucky, Super, Mega, Speed and Miracle potions.\n" +
+          "Put five players in your squad and they earn real coins for your club — up to 300 an hour, into a vault that holds 24 hours. Signed in, the coins go to the game's mail. 100,000 fragments swap for any 120–128 player.\n" +
+          "The ranked leaderboard has a podium for the top three, tier colours, RP bars and win rates.",
   },
   {
-    date: "2026-09-25",
-    title: "Online, ranked, chat",
-    body: "RANKED ONLINE is in the Play menu: you're matched with whoever else is looking, and the match runs straight between the two browsers.\n" +
-          "Six tiers with three divisions each, Elite above them and a Top 10 badge for the ten best on the ladder. Win +28, draw +4, loss -18, plus 2 a goal.\n" +
-          "Pick a username (12 characters), chat here or from inside a match with the quick messages, and report anything out of order — the filter catches the obvious stuff, the report button gets the rest.",
+    date: "2026-11-05",
+    title: "Strong players, cheaper",
+    body: "Star Signings prices are capped for players rated 80 to 119: a 100 costs 15,000 Star Points at most, a 119 at most 40,000. Legends rated 120 and up keep their prices.\n" +
+          "Neymar Jr's Game Box is gone: he's signed in the Signature Archive only now.",
   },
   {
-    date: "2026-09-24",
-    title: "Smoother in the browser",
-    body: "The web build now draws at the pixel resolution instead of scaling a full-size frame, caches rotated sprites and text, and uses a bigger audio buffer — no more crackling.\n" +
-          "Touch works properly: drag anywhere on the pitch on an iPad, and there's a pause button next to the clock.",
+    date: "2026-11-02",
+    title: "Mario Kempes, 128",
+    body: "A new Signature card with its own Game Box and a holo frame: the autograph dims, then a light runs along it, and petals blow across the card.\n" +
+          "The Signature Archive: Signature Tokens only come from archive quests. The first one opens at level 10 — win the World Cup final against the Netherlands scoring 3+, beat THE MACHINE, and win the Premier League on hard.",
   },
   {
-    date: "2026-09-23",
-    title: "Web version",
-    body: "Sign in with Google and your cards, coins, squad and season are saved to your account.\n" +
-          "The ball is 40% slower and takes the movement of whatever body part touches it — run into it and it goes with you.\n" +
-          "New card: Pedro Neto (150, Chelsea).",
+    date: "2026-11-01",
+    title: "Star Signings market, quests, faster football",
+    body: "Star Signings is a market now: every player in the game, searchable, with a watchlist. Release duplicates for Star Points and sign who you want.\n" +
+          "Daily and weekly quests, with a chest and free packs. The game plays 30% faster, the ball is always round, and it spins and dips.",
+  },
+  {
+    date: "2026-10-30",
+    title: "The Gauntlet",
+    body: "Ten opponents in a row, a limited number of halves for your squad, matchday twists from rung 4, and THE MACHINE at the top.",
+  },
+  {
+    date: "2026-10-29",
+    title: "The Club Ladder",
+    body: "Club football is a ladder: League One, the Championship and the Premier League. Top two go up, bottom two go down, the Premier League's top four play the Champions Cup. Every matchday rolls a twist — rain, low gravity, a giant ball, wind or a derby — and a bonus objective.",
+  },
+  {
+    date: "2026-10-26",
+    title: "PlayStyles",
+    body: "Eighteen PlayStyles at three levels, shown on every card, firing in the moments they're for: a Power Shot when you hit it hard, a Precision Header when you meet it in the air.",
   },
 ];
 
@@ -141,8 +156,31 @@ $("navSignin").onclick = doSignIn;
 $("signout").onclick = doSignOut;
 $("signout2").onclick = doSignOut;
 
+rngBoot();                                     // Scout RNG works signed out too
+
+function scoutAccount(uid) {
+  // what Scout RNG needs from Firebase: its own doc (lounge/<uid>) and the rarest-pulls board
+  const ref = doc(db, "lounge", uid);
+  return {
+    uid,
+    username: (me && me.username) || "",
+    async load() { const s = await getDoc(ref); return s.exists() ? s.data() : null; },
+    async save(fields) { await setDoc(ref, { ...fields, updatedAt: serverTimestamp() }, { merge: true }); },
+    async sendMail(item) {
+      const s = await getDoc(ref);
+      const old = s.exists() && Array.isArray(s.data().mail) ? s.data().mail : [];
+      await setDoc(ref, { mail: [item].concat(old).slice(0, 20), updatedAt: serverTimestamp() }, { merge: true });
+    },
+    async board() {
+      const q = await getDocs(query(collection(db, "lounge"), orderBy("bestN", "desc"), limit(10)));
+      return q.docs.map((d) => d.data()).filter((r) => r.bestId);
+    },
+  };
+}
+
 if (auth) onAuthStateChanged(auth, async (user) => {
   if (!user) {
+    rngSignedOut();
     setSignedIn(null, false);
     show(gate);
     stopGame();
@@ -209,6 +247,7 @@ if (auth) onAuthStateChanged(auth, async (user) => {
     place: 0,                       // filled in by the ladder
   };
   show(app);
+  rngSignedIn(scoutAccount(user.uid));
   watchBan();
   watchNotes();
   watchPoll();
@@ -322,7 +361,11 @@ function setSync(state) {
 async function withBroadcastMail(text) {
   try {
     const snap = await getDoc(doc(db, "site", "mail"));
-    const items = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    let items = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    try {                                                 // + whatever Scout RNG sent you (coins, a player)
+      const ls = await getDoc(doc(db, "lounge", playerRef.id));
+      if (ls.exists() && Array.isArray(ls.data().mail)) items = items.concat(ls.data().mail);
+    } catch (err) { /* no lounge doc yet */ }
     const merged = mergeIntoSaveText(text, items);
     if (!merged) return null;
     await setDoc(playerRef, { save: merged, updatedAt: serverTimestamp() }, { merge: true });
@@ -373,6 +416,7 @@ async function saveUsername() {
     me.username = wanted;
     $("nameWhy").textContent = "";
     toast("You're " + wanted + " from now on");
+    rngUsername(wanted);
     showUsernameCard();
     drawMyRank();
     loadBoard();
@@ -384,14 +428,17 @@ async function saveUsername() {
 
 // ---------------------------------------------------------------- ranked
 function drawTiers() {
+  // the tiers as a ladder, top down: badge, name, the RP it starts at - yours lit
   const row = $("tierRow");
   if (!row) return;
   row.textContent = "";
   const mine = rankOf(me ? me.rp : 0, isTopTen());
-  for (const t of TIERS.concat([TOP10])) {
+  for (const t of [TOP10].concat(TIERS.slice().reverse())) {
     const cell = document.createElement("div");
     const fake = t.key === "top10" ? rankOf(9999, true) : rankOf(t.at + 1);
-    cell.innerHTML = badgeSvg(fake, 34) + t.name;
+    const at = t.key === "top10" ? "Top ten on the board" : (t.at ? t.at.toLocaleString() + "+ RP" : "Everyone starts here");
+    cell.innerHTML = badgeSvg(fake, 34) + '<span class="tn">' + t.name + '</span><span class="ta">' + at + "</span>";
+    cell.style.setProperty("--tc", t.colour);
     if (t.key === mine.key) cell.className = "on";
     row.appendChild(cell);
   }
@@ -422,50 +469,128 @@ function drawMyRank() {
     + (tier.next ? "  ·  " + Math.max(0, tier.next - me.rp) + " RP to the next step" : "");
 }
 
+function nameNode(p, place) {
+  const line = document.createElement("span");
+  line.className = "name-line";
+  const nm = document.createElement("b");
+  nm.textContent = p.username;
+  line.appendChild(nm);
+  const worn = wornTitle({ ...p, place });
+  if (worn) line.appendChild(titleChip(worn, { small: true }));
+  if (me && p.uid === me.uid) {
+    const you = document.createElement("span");
+    you.className = "you-tag";
+    you.textContent = "You";
+    line.appendChild(you);
+  }
+  return line;
+}
+
+function winPct(p) {
+  const played = (p.wins || 0) + (p.losses || 0) + (p.draws || 0);
+  return played ? Math.round(100 * (p.wins || 0) / played) + "%" : "–";
+}
+
 async function loadBoard() {
-  const rows = $("boardRows");
+  const list0 = $("boardList"), podium = $("podium"), you = $("boardYou");
   try {
     const snap = await getDocs(query(collection(db, "players"), orderBy("rp", "desc"), limit(25)));
     const list = snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((p) => p.username);
     topTen = list.slice(0, TOP10_MIN).map((p) => p.uid);
     ladderSize = list.length;
-    rows.textContent = "";
+    list0.textContent = "";
+    podium.textContent = "";
+    $("boardCount").textContent = list.length ? list.length + " on the board" : "";
     if (!list.length) {
-      rows.innerHTML = '<tr><td colspan="6" class="muted">Nobody has played a ranked match yet.</td></tr>';
+      list0.innerHTML = '<li class="board-empty">Nobody has played a ranked match yet — be the first.</li>';
     }
-    list.forEach((p, i) => {
+    const ranked = list.map((p, i) => {
       const top = holdsTop10(i, p.rp, list.length);
       const tier = rankOf(p.rp || 0);
       const rank = rankOf(p.rp || 0, top);
       rank.label = top ? "Top 10 · " + tier.label : tier.label;
-      if (p.uid === me.uid) { me.place = i + 1; me.draws = p.draws || 0; }
-      const tr = document.createElement("tr");
-      if (p.uid === me.uid) tr.style.background = "rgba(255,255,255,.06)";
-      const cells = [String(i + 1), p.username, "", String(Math.round(p.rp || 0)),
-                     String(p.wins || 0), String(p.losses || 0)];
-      cells.forEach((text, c) => {
-        const td = document.createElement("td");
-        if (c >= 3) td.className = "num";
-        if (c === 1) {
-          const line = document.createElement("span");
-          line.className = "name-line";
-          const nm = document.createElement("span");
-          nm.textContent = text;
-          line.appendChild(nm);
-          const worn = wornTitle({ ...p, place: i + 1 });
-          if (worn) line.appendChild(titleChip(worn, { small: true }));
-          td.appendChild(line);
-        } else if (c === 2) {
-          td.innerHTML = '<span class="rank-badge">' + badgeSvg(rank, 22) + "<span>" + rank.label + "</span></span>";
-        } else {
-          td.textContent = text;
-        }
-        tr.appendChild(td);
-      });
-      rows.appendChild(tr);
+      if (me && p.uid === me.uid) { me.place = i + 1; me.draws = p.draws || 0; }
+      return { p, i, tier, rank };
     });
+
+    // the top three on a podium: second, first, third
+    for (const k of [1, 0, 2]) {
+      const r = ranked[k];
+      if (!r) continue;
+      const box = document.createElement("div");
+      box.className = "pod pod-" + (k + 1) + (me && r.p.uid === me.uid ? " me" : "");
+      box.style.setProperty("--tc", r.tier.colour);
+      const medal = document.createElement("span");
+      medal.className = "medal";
+      medal.textContent = String(k + 1);
+      const badge = document.createElement("span");
+      badge.className = "pod-badge";
+      badge.innerHTML = badgeSvg(r.rank, k === 0 ? 78 : 62);
+      const nm = nameNode(r.p, k + 1);
+      nm.classList.add("pod-name");
+      const lab = document.createElement("span");
+      lab.className = "pod-tier";
+      lab.textContent = r.rank.label;
+      const rp = document.createElement("span");
+      rp.className = "pod-rp";
+      rp.innerHTML = "<b>" + Math.round(r.p.rp || 0).toLocaleString() + "</b> RP";
+      const rec = document.createElement("span");
+      rec.className = "pod-rec";
+      rec.textContent = (r.p.wins || 0) + "W · " + (r.p.losses || 0) + "L · " + winPct(r.p);
+      const step = document.createElement("span");
+      step.className = "pod-step";
+      step.textContent = String(k + 1);
+      box.append(medal, badge, nm, lab, rp, rec, step);
+      podium.appendChild(box);
+    }
+
+    // everyone else as rows
+    for (const r of ranked.slice(3)) {
+      const li = document.createElement("li");
+      li.className = "brow" + (me && r.p.uid === me.uid ? " me" : "");
+      li.style.setProperty("--tc", r.tier.colour);
+      const place = document.createElement("span");
+      place.className = "place";
+      place.textContent = String(r.i + 1);
+      const who = document.createElement("span");
+      who.className = "who";
+      who.appendChild(nameNode(r.p, r.i + 1));
+      const rk = document.createElement("span");
+      rk.className = "rk";
+      rk.innerHTML = badgeSvg(r.rank, 26) + "<span>" + r.rank.label + "</span>";
+      const rp = document.createElement("span");
+      rp.className = "rp r";
+      rp.innerHTML = "<b>" + Math.round(r.p.rp || 0).toLocaleString() + '</b><i style="--p:' +
+        Math.round((r.tier.progress || 0) * 100) + '%"></i>';
+      const wl = document.createElement("span");
+      wl.className = "r wl";
+      wl.textContent = (r.p.wins || 0) + "–" + (r.p.losses || 0);
+      const pct = document.createElement("span");
+      pct.className = "r pct";
+      pct.textContent = winPct(r.p);
+      li.append(place, who, rk, rp, wl, pct);
+      list0.appendChild(li);
+    }
+    if (list.length && list.length <= 3) {
+      list0.innerHTML = '<li class="board-empty">The rest of the board is waiting for players.</li>';
+    }
+
+    // you, if you're not on the board
+    if (me && me.username && !list.some((p) => p.uid === me.uid)) {
+      you.hidden = false;
+      you.innerHTML = "";
+      const tier = rankOf(me.rp);
+      you.style.setProperty("--tc", tier.colour);
+      you.innerHTML = '<span class="place">–</span><span class="who"></span><span class="rk">' + badgeSvg(tier, 26) +
+        "<span>" + tier.label + '</span></span><span class="rp r"><b>' + Math.round(me.rp).toLocaleString() +
+        '</b></span><span class="r wl">' + (me.wins || 0) + "–" + (me.losses || 0) + '</span><span class="r pct">' +
+        winPct(me) + "</span>";
+      you.querySelector(".who").appendChild(nameNode({ ...me }, 0));
+    } else {
+      you.hidden = true;
+    }
   } catch (err) {
-    rows.innerHTML = '<tr><td colspan="6" class="muted">Couldn\'t read the ladder: ' + (err.code || err) + "</td></tr>";
+    list0.innerHTML = '<li class="board-empty">Couldn\'t read the ladder: ' + (err.code || err) + "</li>";
   }
   drawMyRank();
   drawTiers();

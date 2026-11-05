@@ -59,6 +59,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Scout RNG (the roll game on the site): one document per player - the game's progress,
+    // the best pull (public, for the rarest-pulls board) and the mail it sends to the game
+    match /lounge/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isAdmin() || (isSelf(uid)
+        && playerDoc(uid).get('banned', false) == false
+        && request.resource.data.keys().hasOnly(
+             ['state', 'rolls', 'bestN', 'bestId', 'bestName', 'username', 'mail', 'updatedAt'])
+        && request.resource.data.get('state', '') is string
+        && request.resource.data.get('state', '').size() < 60000
+        && request.resource.data.get('mail', []) is list
+        && request.resource.data.get('mail', []).size() <= 20
+        && request.resource.data.get('bestN', 0) is number
+        && request.resource.data.get('username', '') is string
+        && request.resource.data.get('username', '').size() <= 12);
+      allow delete: if isAdmin();
+    }
+
     // usernames are claimed once so two people can't have the same one
     match /usernames/{key} {
       allow read: if signedIn();

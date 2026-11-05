@@ -7,12 +7,13 @@
 <meta name="description" content="A fling-to-move ragdoll football game. Drag, release, and get thrown across the pitch. Play free in your browser — your cards, coins and season save to your account.">
 <meta property="og:title" content="aSmallWorldCup">
 <meta property="og:description" content="Tiny players. Massive matches. Fling-to-move ragdoll football, free in your browser.">
-<meta name="theme-color" content="#000000">
+<meta property="og:image" content="media/home.jpg">
+<meta name="theme-color" content="#050b18">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2026-10-02b">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23000'/><circle cx='16' cy='16' r='9' fill='%23fff'/><path d='M16 9l4 3-1.5 5h-5L12 12z' fill='%23000'/></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=2026-11-06a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23050b18'/><circle cx='16' cy='16' r='10' fill='%23fff'/><path d='M16 10l4 3-1.5 5h-5L12 13z' fill='%23050b18'/></svg>">
 </head>
 <body>
 
@@ -22,21 +23,21 @@
     <a class="brand" href="#top">
       <svg class="ball" viewBox="0 0 32 32" aria-hidden="true">
         <circle cx="16" cy="16" r="15" fill="#ffffff"/>
-        <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#000000"/>
-        <path d="M16 3.2l.1 2.9M4.6 12.3l2.7 1M27.4 12.3l-2.7 1M9.2 27l1.8-2.4M22.8 27L21 24.6" stroke="#000000" stroke-width="1.6"/>
+        <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#050b18"/>
+        <path d="M16 3.2l.1 2.9M4.6 12.3l2.7 1M27.4 12.3l-2.7 1M9.2 27l1.8-2.4M22.8 27L21 24.6" stroke="#050b18" stroke-width="1.6"/>
       </svg>
       <span>aSmall<em>WorldCup</em></span>
     </a>
 
     <div class="nav-links" id="navLinks">
       <a href="#play">Play</a>
-      <a href="#about">About</a>
-      <a href="#features">Features</a>
-      <a href="#ranked">Ranked</a>
-      <a href="#titles">Titles</a>
-      <a href="#chat">Chat</a>
+      <a href="#scout">Scout RNG</a>
       <a href="#modes">Modes</a>
+      <a href="#cards">Cards</a>
       <a href="#howto">How to play</a>
+      <a href="#ranked">Ranked</a>
+      <a href="#chat">Chat</a>
+      <a href="#titles">Titles</a>
       <a href="#news">Patch notes</a>
     </div>
 
@@ -56,72 +57,69 @@
 
 <main id="top">
 
-  <!-- ======================= hero ======================= -->
+  <!-- ======================= hero: the stadium at night ======================= -->
   <section class="hero">
+    <div class="sky" aria-hidden="true">
+      <i class="beam b1"></i><i class="beam b2"></i><i class="beam b3"></i><i class="beam b4"></i>
+      <div class="stands"></div>
+      <div class="grass"></div>
+    </div>
+
     <div class="wrap hero-in">
-      <div>
-        <span class="kicker reveal in"><span class="live"></span> <b>Free</b> · plays in your browser</span>
-        <h1 class="reveal in">aSmall<span class="a">WorldCup</span></h1>
+      <div class="hero-copy">
+        <span class="kicker reveal in"><span class="live"></span><b>Live</b> Free · plays in your browser</span>
+        <h1 class="reveal in"><span class="w1">A Small</span><span class="w2">World Cup</span></h1>
         <p class="tagline reveal in d1">Tiny players. Massive matches.</p>
         <p class="blurb reveal in d2">
-          No running, no dribbling buttons. You drag, you let go, and your little ragdoll is
+          No running, no dribble button. You drag, you let go, and your little ragdoll is
           <em>flung</em> across the pitch. Hit the ball while you're flying and it goes with you.
         </p>
         <div class="hero-actions reveal in d3">
-          <button class="btn btn-primary btn-lg" id="heroPlay">▶ Play now</button>
+          <button class="btn btn-primary btn-lg" id="heroPlay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Play now</button>
           <a class="btn btn-lg" href="#howto">How to play</a>
         </div>
-        <div class="scoreboard reveal in d4">
-          <div><b>200+</b><span>Cards</span></div>
-          <div><b>4</b><span>Modes</span></div>
-          <div><b>30</b><span>Abilities</span></div>
-          <div><b>0</b><span>Cost</span></div>
+        <div class="scorebug-strip reveal in d4" aria-label="The game in numbers">
+          <div><b>266</b><span>Cards</span></div>
+          <div><b>7</b><span>Ways to play</span></div>
+          <div><b>18</b><span>PlayStyles</span></div>
+          <div><b>£0</b><span>Cost</span></div>
         </div>
       </div>
 
-      <!-- animated pitch -->
-      <div class="pitch reveal in d2" aria-hidden="true">
-        <div class="crowd"></div>
-        <svg class="lines" viewBox="0 0 400 300" preserveAspectRatio="none">
-          <g stroke="rgba(255,255,255,.35)" fill="none" stroke-width="1.4">
-            <rect x="8" y="150" width="384" height="140"/>
-            <line x1="200" y1="150" x2="200" y2="290"/>
-            <circle cx="200" cy="220" r="42"/>
-            <rect x="8" y="188" width="46" height="64"/>
-            <rect x="346" y="188" width="46" height="64"/>
-            <path d="M8 164a14 14 0 0 0 14-14M392 164a14 14 0 0 1-14-14"/>
-          </g>
-        </svg>
-        <div class="scorebug"><i class="t">ENG</i><i class="s">2 – 1</i><i class="t">BRA</i></div>
-
-        <svg class="doll left" width="46" height="62" viewBox="0 0 46 62">
-          <rect x="17" y="2" width="12" height="12" rx="3" fill="#d5d8de"/>
-          <rect x="14" y="16" width="18" height="22" rx="4" fill="#ffffff"/>
-          <rect x="6" y="18" width="7" height="16" rx="3" fill="#d5d8de"/>
-          <rect x="33" y="18" width="7" height="16" rx="3" fill="#d5d8de"/>
-          <rect x="15" y="39" width="7" height="18" rx="3" fill="#1b1b22"/>
-          <rect x="24" y="39" width="7" height="18" rx="3" fill="#1b1b22"/>
-        </svg>
-        <svg class="doll right" width="46" height="62" viewBox="0 0 46 62">
-          <rect x="17" y="2" width="12" height="12" rx="3" fill="#8b8f98"/>
-          <rect x="14" y="16" width="18" height="22" rx="4" fill="#ff5f52"/>
-          <rect x="6" y="18" width="7" height="16" rx="3" fill="#8b8f98"/>
-          <rect x="33" y="18" width="7" height="16" rx="3" fill="#8b8f98"/>
-          <rect x="15" y="39" width="7" height="18" rx="3" fill="#1b1b22"/>
-          <rect x="24" y="39" width="7" height="18" rx="3" fill="#1b1b22"/>
-        </svg>
-
-        <div class="shadow"></div>
-        <div class="ball-wrap">
-          <svg class="ball" viewBox="0 0 32 32">
-            <circle cx="16" cy="16" r="15" fill="#f3f8f4"/>
-            <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#0b1a10"/>
-            <path d="M16 3.2v2.9M4.6 12.3l2.7 1M27.4 12.3l-2.7 1M9.2 27l1.8-2.4M22.8 27L21 24.6" stroke="#0b1a10" stroke-width="1.6"/>
-          </svg>
-        </div>
+      <!-- the card of the moment, live -->
+      <div class="hero-card reveal in d2">
+        <img class="side l" src="media/card_pele.webp" alt="" width="268" height="360" aria-hidden="true">
+        <img class="side r" src="media/card_neymar.webp" alt="" width="268" height="360" aria-hidden="true">
+        <div class="glow" aria-hidden="true"></div>
+        <video class="main" poster="media/kempes.jpg" autoplay muted loop playsinline preload="auto"
+               width="480" height="560" aria-label="Mario Kempes' Signature card, animated">
+          <source src="media/kempes.mp4" type="video/mp4">
+          <source src="media/kempes.webm" type="video/webm">
+        </video>
+        <div class="hero-tag"><span>New</span>Mario Kempes · 128 · Signature</div>
       </div>
     </div>
   </section>
+
+  <!-- ======================= ticker ======================= -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-in">
+      <span><b>NEW</b> Scout RNG: roll for players right here, no sign-in</span>
+      <span><b>NEW</b> Mario Kempes 128 · Signature card</span>
+      <span><b>ARCHIVE</b> Earn Signature Tokens from the 1978 Final quest</span>
+      <span><b>MARKET</b> Star Signings: any player, for Star Points</span>
+      <span><b>GAUNTLET</b> Ten rungs. THE MACHINE at the top</span>
+      <span><b>QUESTS</b> Daily and weekly, free packs in the chest</span>
+      <span><b>LADDER</b> League One to the Champions Cup</span>
+      <span><b>NEW</b> Scout RNG: roll for players right here, no sign-in</span>
+      <span><b>NEW</b> Mario Kempes 128 · Signature card</span>
+      <span><b>ARCHIVE</b> Earn Signature Tokens from the 1978 Final quest</span>
+      <span><b>MARKET</b> Star Signings: any player, for Star Points</span>
+      <span><b>GAUNTLET</b> Ten rungs. THE MACHINE at the top</span>
+      <span><b>QUESTS</b> Daily and weekly, free packs in the chest</span>
+      <span><b>LADDER</b> League One to the Champions Cup</span>
+    </div>
+  </div>
 
   <!-- ======================= play ======================= -->
   <section class="section-sm play-wrap" id="play">
@@ -130,6 +128,7 @@
       <!-- signed out -->
       <div class="stage" id="gate" hidden>
         <div class="state-pane">
+          <span class="eyebrow">Kick-off</span>
           <h3>Sign in to play</h3>
           <p>Your cards, coins, squad and season are saved to your Google account, so you can carry on
              from any computer or iPad. It takes one tap.</p>
@@ -158,11 +157,8 @@
         </div>
         <div class="launch" id="holder">
           <div class="cover" id="cover">
-            <svg width="54" height="54" viewBox="0 0 32 32" aria-hidden="true" style="animation:spin 6s linear infinite">
-              <circle cx="16" cy="16" r="15" fill="#ffffff"/>
-              <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#000000"/>
-            </svg>
-            <button class="btn btn-primary btn-lg" id="startBtn">▶ Start the game</button>
+            <span class="eyebrow">Matchday</span>
+            <button class="btn btn-primary btn-xl" id="startBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Start the game</button>
             <p>Opens full screen on its own page. Your progress saves as you play.</p>
             <p id="loadNote" hidden>Loading…</p>
           </div>
@@ -193,233 +189,383 @@
     </div>
   </section>
 
-  <!-- ======================= ranked ======================= -->
-  <section class="section" id="ranked" style="padding-top:34px">
+  <!-- ======================= Scout RNG: the roll game ======================= -->
+  <section class="section scout" id="scout">
     <div class="wrap">
-      <div class="center" style="margin-bottom:30px">
-        <span class="eyebrow">Ranked</span>
-        <h2 class="h2">Climb the ladder</h2>
-        <p class="lead">Every online win is rank points. Six tiers, three divisions each, then Elite —
-           and the top ten players on the board hold the Top 10 badge.</p>
+      <div class="head scout-head">
+        <div>
+          <span class="eyebrow">Scout RNG · no sign-in needed</span>
+          <h2 class="h2">Roll for <span class="hl gold">players</span></h2>
+          <p class="lead">Every player in the game is a 1-in-something. Roll, build a squad of five, and they earn
+            <b>real coins for your club</b> — up to 300 an hour, even while you're away. Signed in, it all saves to
+            your account and the coins land in the game's mail.</p>
+        </div>
       </div>
 
-      <div class="grid g-2" style="gap:20px; align-items:start">
-        <div class="card" id="myRankCard">
-          <div class="rank-head">
-            <span id="myBadge"></span>
-            <div>
-              <h3 id="myRankName" style="margin:0">Unranked</h3>
-              <p class="muted" id="myRankLine" style="margin:2px 0 0">Sign in and play an online match</p>
+      <div class="sc-grid">
+        <!-- the stage -->
+        <div class="sc-main">
+          <div class="sc-stage" id="scStage">
+            <div class="sc-rays" aria-hidden="true"></div>
+            <span class="sc-new" id="scNew" hidden>New!</span>
+            <span class="sc-bonus" id="scBonus" hidden>Bonus roll</span>
+            <span class="sc-count" id="scCount"></span>
+            <img class="sc-pic" id="scPic" alt="" width="180" height="240">
+            <div class="sc-label">
+              <span class="sc-tier" id="scTier">Scout RNG</span>
+              <span class="sc-name" id="scName">Press ROLL</span>
+              <span class="sc-odds" id="scOdds">266 players to find</span>
             </div>
           </div>
-          <div class="rank-track"><div class="rank-fill" id="myRankFill"></div></div>
-          <p class="muted" id="myRecord" style="margin:12px 0 0"></p>
-        </div>
-
-        <div class="card">
-          <h3 style="margin-bottom:12px">Tiers</h3>
-          <div class="tier-row" id="tierRow"></div>
-        </div>
-      </div>
-
-      <div class="card reveal" style="margin-top:18px">
-        <div class="row" style="justify-content:space-between; margin-bottom:12px">
-          <h3 style="margin:0">Leaderboard</h3>
-          <button class="btn btn-sm" id="boardRefresh">Refresh</button>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="players" id="boardTable">
-            <thead><tr><th>#</th><th>Player</th><th>Rank</th><th class="num">RP</th><th class="num">W</th><th class="num">L</th></tr></thead>
-            <tbody id="boardRows"><tr><td colspan="6" class="muted">Sign in to see the ladder.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= titles ======================= -->
-  <section class="section" id="titles" style="padding-top:0">
-    <div class="wrap">
-      <div class="center" style="margin-bottom:26px">
-        <span class="eyebrow">Titles</span>
-        <h2 class="h2">Wear what you've earned</h2>
-        <p class="lead">A title sits next to your name on the ladder and in chat. Some unlock
-           themselves as you play, the rare ones are handed out.</p>
-      </div>
-
-      <div class="card reveal">
-        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:6px">
-          <h3 style="margin:0">Your titles</h3>
-          <div class="row" style="gap:10px; align-items:center">
-            <span class="muted" id="titleCount"></span>
-            <button class="btn btn-sm" id="titleClear">Wear none</button>
+          <div class="sc-controls">
+            <button class="btn btn-primary btn-xl sc-roll" id="scRoll">Roll</button>
+            <button class="btn sc-auto" id="scAuto">Auto: off</button>
           </div>
-        </div>
-        <p class="muted" id="titleHint" style="margin:0 0 16px">Sign in to see your titles.</p>
-        <div class="title-grid" id="titleGrid"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= chat ======================= -->
-  <section class="section" id="chat" style="padding-top:0">
-    <div class="wrap">
-      <div class="center" style="margin-bottom:26px">
-        <span class="eyebrow">Chat</span>
-        <h2 class="h2">Talk to everyone</h2>
-        <p class="lead">Messages show up in the game too. Be decent — every message has a report
-           button and the filter blocks the obvious stuff.</p>
-      </div>
-      <div class="card" style="padding:0; overflow:hidden">
-        <div class="chat-log" id="chatLog"><p class="muted" style="padding:18px">Sign in to join the chat.</p></div>
-        <div class="chat-send">
-          <input type="text" id="chatInput" maxlength="200" placeholder="Say something…" disabled>
-          <button class="btn btn-primary" id="chatSend" disabled>Send</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= about ======================= -->
-  <section class="section" id="about">
-    <div class="wrap">
-      <div class="grid g-2" style="align-items:center; gap:40px">
-        <div class="reveal">
-          <span class="eyebrow">What is it</span>
-          <h2 class="h2">Football, if the players were made of jelly</h2>
-          <p class="lead">
-            Two little ragdolls, one ball, two goals and a lot of gravity. Every touch comes from
-            momentum — you throw yourself at the ball and hope your head gets there first.
-          </p>
-          <p class="lead">
-            Win matches to earn coins, open packs, build a squad of 200+ original cards and take
-            them through a World Cup, a club season, or a quick game against a mate's favourite player.
-          </p>
-        </div>
-        <div class="grid" style="gap:14px">
-          <div class="card reveal d1">
-            <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 18c4-9 14-9 18 0"/><circle cx="7" cy="14" r="2"/><circle cx="17" cy="9" r="2"/></svg></div>
-            <h3>Real physics, no animations</h3>
-            <p>Nothing is scripted. Every goal comes out of the collision, the spin and the bounce.</p>
+          <div class="sc-stats">
+            <div><span>Luck</span><b id="scLuck">1x</b><i id="scBonusIn"></i></div>
+            <div><span>Rolls</span><b id="scRolls">0</b><i>space bar rolls too</i></div>
+            <div class="wide"><span>Best pull</span><b id="scBest">—</b></div>
           </div>
-          <div class="card gold reveal d2">
-            <div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><circle cx="12" cy="10" r="3"/><path d="M7 18c1.8-2.4 8.2-2.4 10 0"/></svg></div>
-            <h3>Cards worth chasing</h3>
-            <p>Packs, a Star Signing store and abilities that actually change how your player throws.</p>
+          <div class="sc-active" id="scActive" aria-live="polite"></div>
+        </div>
+
+        <!-- the side: pack, potions, squad, vault, fragments -->
+        <div class="sc-side">
+          <div class="sc-box sc-pack" id="scPack">
+            <div class="sc-ring" id="scPackRing" aria-hidden="true">
+              <svg viewBox="0 0 40 48"><rect x="4" y="4" width="32" height="40" rx="5" fill="#13244c" stroke="#ffd24a" stroke-width="2"/><path d="M4 16h32" stroke="#ffd24a" stroke-width="2"/><circle cx="20" cy="28" r="7" fill="#ffd24a"/><path d="M20 23l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z" fill="#13244c"/></svg>
+            </div>
+            <div class="sc-box-text">
+              <span class="sc-k">Free pack <b id="scPacks">×1</b></span>
+              <span class="muted" id="scPackTime">Next in 30s</span>
+            </div>
+            <button class="btn btn-gold btn-sm" id="scPackBtn">Open</button>
+            <span class="sc-pop" id="scPackPop"></span>
+          </div>
+
+          <div class="sc-box">
+            <span class="sc-k">Potions <i class="muted">— tap to drink</i></span>
+            <div class="sc-inv" id="scInv"></div>
+          </div>
+
+          <div class="sc-box">
+            <div class="sc-row"><span class="sc-k">Your squad</span><button class="btn btn-sm" id="scBestBtn">Best five</button></div>
+            <div class="sc-squad" id="scSquad"></div>
+            <div class="sc-bar"><i id="scRateFill"></i></div>
+            <span class="muted sc-small"><b id="scRate">0 / 300</b> coins an hour</span>
+          </div>
+
+          <div class="sc-box sc-vault">
+            <div class="sc-row"><span class="sc-k">Vault</span><span class="sc-big"><b id="scVault">0</b> / 7,200</span></div>
+            <div class="sc-bar gold"><i id="scVaultFill"></i></div>
+            <span class="muted sc-small" id="scVaultNote"></span>
+            <button class="btn btn-primary btn-block" id="scCollect">Sign in to collect</button>
+          </div>
+
+          <div class="sc-box sc-frag">
+            <div class="sc-row"><span class="sc-k">Fragments</span><span class="sc-big"><b id="scFrags">0</b> / 100,000</span></div>
+            <div class="sc-bar cyan"><i id="scFragFill"></i></div>
+            <span class="muted sc-small">Swap 100,000 for any 120–128 player, sent to your club.</span>
+            <button class="btn btn-block" id="scSwapBtn" disabled>Swap for a player</button>
           </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ======================= features ======================= -->
-  <section class="section" id="features" style="padding-top:0">
-    <div class="wrap">
-      <div class="center" style="margin-bottom:34px">
-        <span class="eyebrow">Gameplay</span>
-        <h2 class="h2">Everything is built from the physics up</h2>
-        <p class="lead">One mechanic, endless chaos. These are the parts that make it stick.</p>
+      <!-- the index -->
+      <div class="sc-index" id="scIndex">
+        <div class="sc-row">
+          <h3>The index <span class="muted" id="scIndexCount"></span></h3>
+          <select id="scFilter" aria-label="Show">
+            <option value="all">All</option><option value="owned">Scouted</option><option value="missing">Not yet</option>
+          </select>
+        </div>
+        <p class="muted sc-small">Tap a player you've scouted to put him in your squad or take him out.</p>
+        <div class="sc-cells" id="scGrid"></div>
       </div>
-      <div class="grid g-3">
-        <div class="card reveal">
-          <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 20L14 10"/><path d="M14 4h6v6"/><path d="M20 4l-6 6"/></svg></div>
-          <h3>Fling to move</h3>
-          <p>Drag from your player and let go. Longer drag, harder throw — in the air too.</p>
-        </div>
-        <div class="card blue reveal d1">
-          <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M8 10h8M9 21l3-6 3 6"/></svg></div>
-          <h3>Trailing ragdoll</h3>
-          <p>Head, arms and legs swing against your movement, then settle when you land.</p>
-        </div>
-        <div class="card gold reveal d2">
-          <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4l3 6-3 4-3-4z"/></svg></div>
-          <h3>A ball with weight</h3>
-          <p>It bounces off posts, spins, curves and carries whatever pace you hit it with.</p>
-        </div>
-        <div class="card violet reveal">
-          <div class="ico"><svg viewBox="0 0 24 24"><path d="M5 7h14v12H5z"/><path d="M9 7V4h6v3"/><path d="M9 13h6"/></svg></div>
-          <h3>Packs and pulls</h3>
-          <p>Walkout animations, pool odds, pity counters and a store that's actually worth saving for.</p>
-        </div>
-        <div class="card reveal d1">
-          <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></div>
-          <h3>30 abilities</h3>
-          <p>Bronze to Diamond. Cannon, Anchor, Poacher, Silky — they change the feel, not just a number.</p>
-        </div>
-        <div class="card blue reveal d2">
-          <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 19V5M20 19V5M4 12h16"/><circle cx="12" cy="12" r="3"/></svg></div>
-          <h3>Seasons that matter</h3>
-          <p>Seven knockout rounds, a twelve-game club league, stamina, XP and a table that updates.</p>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ======================= showcase ======================= -->
-  <section class="section" id="shots" style="padding-top:0">
-    <div class="wrap">
-      <div class="center" style="margin-bottom:30px">
-        <span class="eyebrow">Screenshots</span>
-        <h2 class="h2">Straight from the pitch</h2>
-      </div>
-      <div class="shots" id="shotGrid">
-        <figure class="shot wide reveal"><img src="shots/match.png" alt="A match in progress" loading="lazy" width="1280" height="720"><figcaption>Kick-off — two throws from a goal</figcaption></figure>
-        <figure class="shot reveal d1"><img src="shots/card.png" alt="A player card" loading="lazy" width="1280" height="720"><figcaption>Cards, stats and abilities</figcaption></figure>
-        <figure class="shot reveal d1"><img src="shots/pack.png" alt="Opening a pack" loading="lazy" width="1280" height="720"><figcaption>Walkouts</figcaption></figure>
-        <figure class="shot reveal d2"><img src="shots/store.png" alt="The store" loading="lazy" width="1280" height="720"><figcaption>The store</figcaption></figure>
-        <figure class="shot reveal d3"><img src="shots/select.png" alt="Team select" loading="lazy" width="1280" height="720"><figcaption>World Cup bracket</figcaption></figure>
+      <div class="sc-pulls">
+        <h3>Rarest pulls</h3>
+        <ol id="scBoard"><li class="muted">Sign in to see everyone's rarest pulls.</li></ol>
       </div>
     </div>
+
+    <!-- the cutscene for a big pull -->
+    <div class="sc-cut" id="scCut" aria-live="assertive">
+      <div class="sc-cut-in">
+        <span class="sc-cut-tier" id="scCutTier"></span>
+        <img id="scCutPic" alt="">
+        <span class="sc-cut-name" id="scCutName"></span>
+        <span class="sc-cut-odds" id="scCutOdds"></span>
+        <span class="muted">click to carry on</span>
+      </div>
+    </div>
+
+    <!-- fragments -> a player -->
+    <div class="report-back" id="scSwap" hidden>
+      <div class="report sc-swap">
+        <div class="sc-row"><h3 style="margin:0">Pick your player</h3><button class="btn btn-sm" id="scSwapClose">Close</button></div>
+        <p class="muted">Any 120–128 player for 100,000 fragments. He goes to your club's mail.</p>
+        <div class="sc-swap-grid" id="scSwapGrid"></div>
+        <button class="btn btn-primary btn-block" id="scSwapGo" disabled>Pick a player</button>
+      </div>
+    </div>
+
+    <div class="sc-note" id="scNote" role="status"></div>
   </section>
 
   <!-- ======================= modes ======================= -->
-  <section class="section" id="modes" style="padding-top:0">
+  <section class="section" id="modes">
     <div class="wrap">
-      <div class="grid g-2" style="gap:40px; align-items:start">
-        <div class="reveal">
-          <span class="eyebrow">Game modes</span>
-          <h2 class="h2">Four ways to play</h2>
-          <p class="lead">Every mode uses the same throw. What changes is what's on the line.</p>
-          <div class="statline reveal d1">
-            <div><span>Nations</span><i></i><b>12</b></div>
-            <div><span>Clubs</span><i></i><b>20</b></div>
-            <div><span>Rounds to the cup</span><i></i><b>7</b></div>
-            <div><span>League games</span><i></i><b>12</b></div>
-            <div><span>Robots in practice</span><i></i><b>4</b></div>
-          </div>
+      <div class="head">
+        <span class="eyebrow">Game modes</span>
+        <h2 class="h2">Seven ways to play. <span class="hl">One throw.</span></h2>
+        <p class="lead">Every mode uses the same drag and release. What changes is what's on the line.</p>
+      </div>
+
+      <div class="modes">
+        <figure class="shot mode-tile big reveal">
+          <img src="media/worldcup.jpg" alt="The World Cup screen: the nations and the bracket" loading="lazy" width="1280" height="720">
+          <figcaption><span class="num">01</span><h3>World Cup</h3><p>Pick a nation, three group days, then four knockouts. Lose once and the run is over.</p></figcaption>
+        </figure>
+        <figure class="shot mode-tile reveal d1">
+          <img src="media/ladder.jpg" alt="The club ladder: three divisions and the Champions Cup" loading="lazy" width="1280" height="720">
+          <figcaption><span class="num">02</span><h3>Club Ladder</h3><p>League One to the Premier League. Top two go up, top four play the Champions Cup.</p></figcaption>
+        </figure>
+        <figure class="shot mode-tile reveal d2">
+          <img src="media/gauntlet.jpg" alt="The Gauntlet: ten rungs to THE MACHINE" loading="lazy" width="1280" height="720">
+          <figcaption><span class="num">03</span><h3>The Gauntlet</h3><p>Ten opponents in a row, limited halves for your squad, and THE MACHINE waiting at the top.</p></figcaption>
+        </figure>
+        <figure class="shot mode-tile reveal d1">
+          <img src="media/impossible.jpg" alt="Impossible mode's World Cup" loading="lazy" width="1280" height="720">
+          <figcaption><span class="num">04</span><h3>Impossible</h3><p>Opens at level 5. Every opponent +20, a CPU that never hesitates, triple coins and Essence.</p></figcaption>
+        </figure>
+        <figure class="shot mode-tile reveal d2">
+          <img src="media/match.jpg" alt="A match in the stadium" loading="lazy" width="1280" height="720">
+          <figcaption><span class="num">05</span><h3>Head to Head</h3><p>Ranked online against a real player, peer to peer. Win rank points, climb the tiers.</p></figcaption>
+        </figure>
+        <figure class="shot mode-tile reveal d3">
+          <img src="media/machine.jpg" alt="A match with the giant ball twist" loading="lazy" width="1280" height="720">
+          <figcaption><span class="num">06 · 07</span><h3>Free &amp; Practice</h3><p>Any card against any card, or no clock at all and up to four robots to mess about with.</p></figcaption>
+        </figure>
+      </div>
+
+      <div class="twists reveal">
+        <span class="label">Matchday twists</span>
+        <span class="tw" style="--c:#6eb4ff">Rain</span>
+        <span class="tw" style="--c:#d9c8ff">Low gravity</span>
+        <span class="tw" style="--c:#ffffff">Giant ball</span>
+        <span class="tw" style="--c:#9ff0e3">Windy</span>
+        <span class="tw" style="--c:#ff7a70">Derby day</span>
+        <span class="muted">Club and Gauntlet matches can roll a twist that changes the physics.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= cards ======================= -->
+  <section class="section cards-sec" id="cards">
+    <div class="wrap">
+      <div class="head center">
+        <span class="eyebrow">Cards</span>
+        <h2 class="h2">Cards worth <span class="hl gold">chasing</span></h2>
+        <p class="lead">266 original cards, drawn in code. Their stats and PlayStyles change how your player
+          throws, shoots and wins the ball — not just a number on the front.</p>
+      </div>
+
+      <div class="fan reveal" aria-label="Some of the cards">
+        <img src="media/card_salah.webp" alt="Salah, Limit Breakers" loading="lazy" style="--r:-14deg; --y:34px">
+        <img src="media/card_messi.webp" alt="Messi, World's Game" loading="lazy" style="--r:-7deg; --y:10px">
+        <img src="media/card_pele.webp" alt="Pelé, Star Signing" loading="lazy" style="--r:0deg; --y:0px" class="mid">
+        <img src="media/card_mbappe.webp" alt="Mbappé, World Cup" loading="lazy" style="--r:7deg; --y:10px">
+        <img src="media/card_r9.webp" alt="R9 Ronaldo, Star Signing" loading="lazy" style="--r:14deg; --y:34px">
+      </div>
+
+      <div class="grid g-3 feats">
+        <div class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M5 7h14v12H5z"/><path d="M9 7V4h6v3"/><path d="M9 13h6"/></svg></div>
+          <h3>Packs &amp; walkouts</h3>
+          <p>Pool odds with pity counters, and the big walkout when something special drops — flag, club, position, then the card.</p>
         </div>
-        <div class="grid" style="gap:12px">
-          <div class="mode reveal"><span class="num">01</span><div><h3>World Cup</h3><p>Seven knockout rounds with twelve nations. Lose once and it's over — win it all on Impossible for bragging rights.</p></div></div>
-          <div class="mode reveal d1"><span class="num">02</span><div><h3>Club Football</h3><p>Pick one of twenty clubs and play a twelve-round season with a live league table.</p></div></div>
-          <div class="mode reveal d2"><span class="num">03</span><div><h3>Freeplay</h3><p>Any card you own against any card you own. Quick match, small coin reward, no stamina.</p></div></div>
-          <div class="mode reveal d3"><span class="num">04</span><div><h3>Practice</h3><p>No clock, no score limit. Spawn up to four robots, set their difficulty, and mess about.</p></div></div>
+        <div class="card gold reveal d1">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></div>
+          <h3>Star Signings</h3>
+          <p>A transfer market with every player in the game. Release duplicates for Star Points, search, watchlist, sign.</p>
         </div>
+        <div class="card sig reveal d2">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 17c3-1 4-9 7-9s0 8 3 8 3-6 5-6 2 3 3 3"/><path d="M3 21h18"/></svg></div>
+          <h3>Signature Archive</h3>
+          <p>The rarest cards in the game. Signature Tokens only come from archive quests — like winning the 1978 Final again.</p>
+        </div>
+      </div>
+
+      <div class="statline reveal">
+        <div><span>Cards</span><i></i><b>266</b></div>
+        <div><span>PlayStyles</span><i></i><b>18</b></div>
+        <div><span>Traits</span><i></i><b>38</b></div>
+        <div><span>Card level cap</span><i></i><b>30</b></div>
+        <div><span>Trophies to win</span><i></i><b>9</b></div>
       </div>
     </div>
   </section>
 
   <!-- ======================= how to play ======================= -->
-  <section class="section" id="howto" style="padding-top:0">
+  <section class="section" id="howto">
     <div class="wrap">
-      <div class="grid g-2" style="gap:46px; align-items:center">
+      <div class="grid g-2 howto-in">
         <div class="reveal">
           <span class="eyebrow">How to play</span>
           <h2 class="h2">Three things to learn</h2>
-          <div class="steps" style="margin-top:28px">
-            <div class="step"><h3>Drag</h3><p>Press anywhere near your player and pull. The arrow shows where you'll fly and how hard.</p></div>
-            <div class="step"><h3>Release</h3><p>Let go and you're thrown. You keep that momentum — throw again mid-air to change direction.</p></div>
-            <div class="step"><h3>Score</h3><p>Meet the ball while you're moving fast. The faster you're going, the further it goes.</p></div>
+          <div class="steps">
+            <div class="step"><h3>Drag</h3><p>Press near your player and pull. The arrow shows where you'll fly and how hard.</p></div>
+            <div class="step"><h3>Release</h3><p>Let go and you're thrown. You keep that momentum — throw again in the air to change direction.</p></div>
+            <div class="step"><h3>Score</h3><p>Meet the ball while you're moving fast. The faster you're going, the harder it goes.</p></div>
           </div>
         </div>
-        <div class="card reveal d2" style="padding:28px">
-          <h3 style="font-size:16px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold)">Good to know</h3>
-          <ul class="muted" style="margin:14px 0 0; padding-left:18px; line-height:1.9">
-            <li>Mouse, trackpad or touch — iPads work, just drag on the pitch.</li>
-            <li>The pause button sits next to the clock if you have no keyboard.</li>
+
+        <div class="diagram card reveal d2" aria-hidden="true">
+          <svg viewBox="0 0 420 260">
+            <defs>
+              <marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ffd24a"/></marker>
+            </defs>
+            <rect x="0" y="212" width="420" height="48" fill="#1d7a3c"/>
+            <g fill="#ffffff" opacity=".08"><rect x="0" y="212" width="60" height="48"/><rect x="120" y="212" width="60" height="48"/><rect x="240" y="212" width="60" height="48"/><rect x="360" y="212" width="60" height="48"/></g>
+            <path d="M64 196 C 140 60, 250 40, 330 118" stroke="#ffffff" stroke-opacity=".35" stroke-width="2" stroke-dasharray="6 7" fill="none"/>
+            <line x1="64" y1="190" x2="20" y2="232" stroke="#ffd24a" stroke-width="3" stroke-dasharray="4 5"/>
+            <circle cx="20" cy="232" r="7" fill="none" stroke="#ffd24a" stroke-width="2.5"/>
+            <line x1="64" y1="190" x2="124" y2="132" stroke="#ffd24a" stroke-width="3.5" marker-end="url(#ah)"/>
+            <!-- the ragdoll in flight: moving right, everything trails left -->
+            <g transform="translate(222 70) rotate(-10)">
+              <rect x="-11" y="-12" width="22" height="26" rx="5" fill="#75b4e4"/>
+              <rect x="-4" y="-12" width="8" height="26" fill="#ffffff"/>
+              <g transform="translate(-14 -8) rotate(30)"><rect x="-4" y="0" width="8" height="18" rx="3" fill="#e8c4a0"/></g>
+              <g transform="translate(14 -8) rotate(30)"><rect x="-4" y="0" width="8" height="18" rx="3" fill="#e8c4a0"/></g>
+              <g transform="translate(0 14) rotate(28)"><rect x="-7" y="0" width="14" height="18" rx="4" fill="#15203a"/></g>
+              <g transform="translate(0 -14) rotate(-22)"><rect x="-8" y="-17" width="16" height="16" rx="5" fill="#e8c4a0"/><rect x="-8" y="-19" width="16" height="7" rx="3" fill="#2a1c12"/></g>
+            </g>
+            <g transform="translate(330 118)"><circle r="13" fill="#fff"/><path d="M0 -7l6 4-2 7h-8l-2-7z" fill="#050b18"/></g>
+            <text x="22" y="252" fill="#ffd24a" font-family="Barlow Condensed" font-weight="800" font-size="15" letter-spacing="1">DRAG</text>
+            <text x="112" y="120" fill="#ffd24a" font-family="Barlow Condensed" font-weight="800" font-size="15" letter-spacing="1">RELEASE</text>
+            <text x="300" y="98" fill="#ffffff" font-family="Barlow Condensed" font-weight="800" font-size="15" letter-spacing="1">SCORE</text>
+            <text x="170" y="28" fill="#9fb0d0" font-family="Barlow" font-size="12">moving right → head, arms and legs trail left</text>
+          </svg>
+          <ul class="muted know">
+            <li>Mouse, trackpad or touch — on an iPad just drag on the pitch.</li>
+            <li>No keyboard? The pause button sits next to the clock.</li>
             <li>Progress saves by itself; the dot above the game turns green when it has.</li>
-            <li>Fullscreen makes the pitch much easier to read on a small screen.</li>
           </ul>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= ranked ======================= -->
+  <section class="section online" id="ranked">
+    <div class="wrap">
+      <div class="head">
+        <span class="eyebrow">Ranked</span>
+        <h2 class="h2">Climb the <span class="hl">ladder</span></h2>
+        <p class="lead">Every Head to Head win is rank points. Six tiers with three divisions each, then Elite —
+           and the ten best on the board wear the Top 10 badge.</p>
+      </div>
+
+      <div class="ladder">
+        <!-- the board -->
+        <div class="board-card reveal">
+          <div class="board-head">
+            <div>
+              <span class="board-kicker"><span class="live"></span>Live ladder</span>
+              <h3>Leaderboard</h3>
+            </div>
+            <div class="row" style="gap:10px">
+              <span class="muted" id="boardCount"></span>
+              <button class="btn btn-sm" id="boardRefresh">Refresh</button>
+            </div>
+          </div>
+          <div class="podium" id="podium"></div>
+          <div class="board-cols" aria-hidden="true"><span>#</span><span>Player</span><span>Rank</span><span class="r">RP</span><span class="r">W–L</span><span class="r">Win %</span></div>
+          <ol class="board-list" id="boardList"><li class="board-empty">Sign in to see the ladder.</li></ol>
+          <div class="board-you" id="boardYou" hidden></div>
+        </div>
+
+        <!-- you, and the tiers -->
+        <aside class="ladder-side">
+          <div class="card my-rank" id="myRankCard">
+            <span class="board-kicker">Your rank</span>
+            <div class="rank-head">
+              <span id="myBadge"></span>
+              <div>
+                <h3 id="myRankName" style="margin:0">Unranked</h3>
+                <p class="muted" id="myRankLine" style="margin:2px 0 0">Sign in and play an online match</p>
+              </div>
+            </div>
+            <div class="rank-track"><div class="rank-fill" id="myRankFill"></div></div>
+            <p class="muted" id="myRecord" style="margin:12px 0 0"></p>
+          </div>
+          <div class="card tiers-card">
+            <span class="board-kicker">The tiers</span>
+            <div class="tier-row" id="tierRow"></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= chat + titles ======================= -->
+  <section class="section online" id="chat" style="padding-top:0">
+    <div class="wrap">
+      <div class="grid g-2 social">
+        <div>
+          <div class="head">
+            <span class="eyebrow">Chat</span>
+            <h2 class="h2 sm">Talk to everyone</h2>
+            <p class="lead">Messages show up in the game too. Be decent — every message has a report
+               button and the filter blocks the obvious stuff.</p>
+          </div>
+          <div class="card chat-card">
+            <div class="chat-log" id="chatLog"><p class="muted" style="padding:18px">Sign in to join the chat.</p></div>
+            <div class="chat-send">
+              <input type="text" id="chatInput" maxlength="200" placeholder="Say something…" disabled>
+              <button class="btn btn-primary" id="chatSend" disabled>Send</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="titles">
+          <div class="head">
+            <span class="eyebrow">Titles</span>
+            <h2 class="h2 sm">Wear what you've earned</h2>
+            <p class="lead">A title sits next to your name on the ladder and in chat. Some unlock
+               themselves as you play, the rare ones are handed out.</p>
+          </div>
+          <div class="card">
+            <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:6px">
+              <h3 style="margin:0">Your titles</h3>
+              <div class="row" style="gap:10px; align-items:center">
+                <span class="muted" id="titleCount"></span>
+                <button class="btn btn-sm" id="titleClear">Wear none</button>
+              </div>
+            </div>
+            <p class="muted" id="titleHint" style="margin:0 0 16px">Sign in to see your titles.</p>
+            <div class="title-grid" id="titleGrid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= screenshots ======================= -->
+  <section class="section" id="shots" style="padding-top:0">
+    <div class="wrap">
+      <div class="head center">
+        <span class="eyebrow">Screenshots</span>
+        <h2 class="h2">Straight from the game</h2>
+      </div>
+      <div class="shots" id="shotGrid">
+        <figure class="shot wide reveal"><img src="media/home.jpg" alt="The home screen" loading="lazy" width="1280" height="720"><figcaption>Home</figcaption></figure>
+        <figure class="shot reveal d1"><img src="media/walkout.jpg" alt="A Limit Breaker walkout" loading="lazy" width="1280" height="720"><figcaption>Walkouts</figcaption></figure>
+        <figure class="shot reveal d2"><img src="media/stars.jpg" alt="Star Signings" loading="lazy" width="1280" height="720"><figcaption>Star Signings</figcaption></figure>
+        <figure class="shot reveal d1"><img src="media/archive.jpg" alt="The Signature Archive" loading="lazy" width="1280" height="720"><figcaption>Signature Archive</figcaption></figure>
+        <figure class="shot reveal d2"><img src="media/profile.jpg" alt="The trophy cabinet" loading="lazy" width="1280" height="720"><figcaption>Trophy cabinet</figcaption></figure>
+        <figure class="shot reveal d3"><img src="media/match.jpg" alt="A match" loading="lazy" width="1280" height="720"><figcaption>Matchday</figcaption></figure>
       </div>
     </div>
   </section>
@@ -427,7 +573,7 @@
   <!-- ======================= patch notes ======================= -->
   <section class="section" id="news" style="padding-top:0">
     <div class="wrap">
-      <div class="center" style="margin-bottom:30px">
+      <div class="head center">
         <span class="eyebrow">Latest</span>
         <h2 class="h2">Patch notes</h2>
       </div>
@@ -439,9 +585,10 @@
   <section class="section" style="padding-top:0">
     <div class="wrap">
       <div class="cta reveal">
+        <div class="cta-score" aria-hidden="true"><i>YOU</i><b>0 – 0</b><i>90'</i></div>
         <h2>Right, go and score one</h2>
         <p>Free, no download, saves as you play.</p>
-        <button class="btn btn-primary btn-lg" id="ctaPlay">▶ Play aSmallWorldCup</button>
+        <button class="btn btn-primary btn-xl" id="ctaPlay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>Play aSmallWorldCup</button>
       </div>
     </div>
   </section>
@@ -453,7 +600,7 @@
     <span class="spacer"></span>
     <span>All art, players and cards are original and drawn in code.</span>
     <span class="spacer"></span>
-    <span id="buildTag" title="which files the site is running">build 2026-10-02b</span>
+    <span id="buildTag" title="which files the site is running">build 2026-11-06a</span>
   </div>
 </footer>
 
@@ -478,7 +625,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="app.js?v=2026-10-02b"></script>
+<script type="module" src="app.js?v=2026-11-06a"></script>
 <script>
   // if the Firebase modules can't be fetched (offline, blocker, no config) say so instead of failing quietly
   setTimeout(function () {

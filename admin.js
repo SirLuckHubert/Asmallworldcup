@@ -9,11 +9,11 @@ import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
   serverTimestamp, query, orderBy, limit, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-10-02b";
-import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-10-02b";
-import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-10-02b";
-import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-10-02b";
-import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-10-02b";
+import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-11-06a";
+import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-11-06a";
+import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-11-06a";
+import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06a";
+import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-11-06a";
 
 const $ = (id) => document.getElementById(id);
 const fb = initializeApp(firebaseConfig);

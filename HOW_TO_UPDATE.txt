@@ -1,0 +1,49 @@
+A SMALL WORLD CUP - THE WHOLE THING (6 Nov 2026)
+=================================================
+
+What's in here (this folder IS your GitHub repo, sirluckhubert/asmallworldcup):
+
+  index.html, style.css, *.js, media/ ...   the website (new design, leaderboard, Scout RNG)
+  game/                                     the game IN THE BROWSER - rebuilt from today's game
+  desktop/                                  the game for your PC (desktop/game/ragdoll_football.py)
+                                            + the tests (desktop/testing/run_all.py)
+  firestore.rules                           the database rules - paste into Firebase (step 1)
+  cards.json                                every card in the game (the admin page and Scout RNG read it)
+
+Your music isn't in desktop/ - copy your .mp3/.ogg files into desktop/game/ on your PC like before.
+The browser game already has your .ogg files (taken from the version that's live now).
+
+---------------------------------------------------------------------------
+1. FIREBASE RULES (do this first)
+---------------------------------------------------------------------------
+console.firebase.google.com > asmallworldcup-8f491 > Firestore Database > Rules.
+Delete everything in the box, paste in ALL of firestore.rules, press Publish.
+
+---------------------------------------------------------------------------
+2. UPLOAD
+---------------------------------------------------------------------------
+GitHub Desktop > open sirluckhubert/asmallworldcup > Repository > Show in Explorer.
+Copy EVERYTHING from inside this folder into it (including the game/ folder this time).
+Say "Replace" to every file.
+Back in GitHub Desktop: summary "Full update: new site, Scout RNG, current game",
+Commit to main, Push origin.
+
+It's about 2,000 files and 55 MB. GitHub Desktop is fine with that - the github.com upload page
+isn't (100 files at a time), so don't use the website for this one.
+The biggest single file is 16 MB (game/aswc.apk), well under GitHub's 100 MB limit.
+
+---------------------------------------------------------------------------
+3. CHECK
+---------------------------------------------------------------------------
+Wait 1-2 minutes, open the site, press Ctrl+Shift+R. The footer should say build 2026-11-06a.
+Press Play: the game is now the current one (Gauntlet, ladder, Star Signings, Kempes...).
+The first load takes a bit longer than before - the game is twice the size it was in October.
+Something off? Open /check.html on the site.
+
+If the browser game misbehaves: GitHub keeps every version. On github.com open the repo >
+game/ folder > History, or in GitHub Desktop right-click the commit > Revert.
+
+---------------------------------------------------------------------------
+PLAYING ON YOUR PC
+---------------------------------------------------------------------------
+cd desktop/game   then   py ragdoll_football.py

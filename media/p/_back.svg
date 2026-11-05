@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 240">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b3166"/><stop offset="1" stop-color="#0a1430"/></linearGradient>
+    <pattern id="p" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="16" fill="#ffffff" opacity=".035"/></pattern>
+  </defs>
+  <rect x="6" y="6" width="168" height="228" rx="18" fill="url(#g)" stroke="#ffd24a" stroke-width="4"/>
+  <rect x="6" y="6" width="168" height="228" rx="18" fill="url(#p)"/>
+  <rect x="18" y="18" width="144" height="204" rx="12" fill="none" stroke="#ffd24a" stroke-opacity=".35" stroke-width="2"/>
+  <circle cx="90" cy="112" r="40" fill="#ffffff"/>
+  <path d="M90 84l16 11.5-6 18.7H80l-6-18.7z" fill="#0a1430"/>
+  <path d="M90 74v8M53 104l8 2.6M127 104l-8 2.6M66 145l5-6.6M114 145l-5-6.6" stroke="#0a1430" stroke-width="4"/>
+  <text x="90" y="192" text-anchor="middle" fill="#ffd24a" font-family="Arial Narrow, Arial, sans-serif" font-weight="900" font-style="italic" font-size="22" letter-spacing="3">SCOUT</text>
+</svg>

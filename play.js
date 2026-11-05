@@ -10,11 +10,11 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, addDoc, query, orderBy, limit,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-10-02b";
-import { Net } from "./net.js?v=2026-10-02b";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-10-02b";
-import { checkText } from "./words.js?v=2026-10-02b";
-import { mergeIntoSaveText } from "./mail.js?v=2026-10-02b";
+import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-11-06a";
+import { Net } from "./net.js?v=2026-11-06a";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06a";
+import { checkText } from "./words.js?v=2026-11-06a";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06a";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;
@@ -142,7 +142,11 @@ function watchBan() {
 async function withBroadcastMail(text) {
   try {
     const snap = await getDoc(doc(db, "site", "mail"));
-    const items = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    let items = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+    try {                                                 // + whatever Scout RNG sent you (coins, a player)
+      const ls = await getDoc(doc(db, "lounge", playerRef.id));
+      if (ls.exists() && Array.isArray(ls.data().mail)) items = items.concat(ls.data().mail);
+    } catch (err) { /* no lounge doc yet */ }
     const merged = mergeIntoSaveText(text, items);
     if (!merged) return null;
     await setDoc(playerRef, { save: merged, updatedAt: serverTimestamp() }, { merge: true });
