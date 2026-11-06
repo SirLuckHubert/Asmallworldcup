@@ -48,7 +48,7 @@ import sys, io
 path = sys.argv[1]
 html = io.open(path, encoding="utf-8").read()
 tag = '<script src="bridge.js"></script>'
-if tag not in html:
+if 'src="bridge.js' not in html:                 # (stamped bridge.js?v=... counts too)
     html = html.replace("</head>", "  " + tag + "\n</head>", 1)
     io.open(path, "w", encoding="utf-8").write(html)
     print("bridge.js hooked into", path)

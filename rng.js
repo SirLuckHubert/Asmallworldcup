@@ -12,7 +12,7 @@
 //
 // Everything runs in the browser, like the game's own save: the numbers below are the rules.
 
-import { makeMail } from "./mail.js?v=2026-11-06c";
+import { makeMail } from "./mail.js?v=2026-11-06h";
 
 export const RULES = {
   rollMs: 1000, speedMs: 500,            // roll cooldown, and with a Speed Potion

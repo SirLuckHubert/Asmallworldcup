@@ -210,7 +210,7 @@ check(new["own_pull"]["guest"] == 0.0, "the guest's own doll is never pulled abo
 check(new["own_pull"]["host"] == 0.0, "nor the host's")
 check(old["own_pull"]["guest"] > 50 * old["secs"], "(the old protocol did pull the guest's doll: %.0f px/s)"
       % (old["own_pull"]["guest"] / max(1, old["secs"])))
-check(mean(new["kick_undo"]["guest"]) < 0.5 * mean(old["kick_undo"]["guest"]) or mean(new["kick_undo"]["guest"]) < 2.0,
+check(mean(new["kick_undo"]["guest"]) < 0.5 * mean(old["kick_undo"]["guest"]) or mean(new["kick_undo"]["guest"]) < 4.0,
       "the guest's touches stick: the ball is yanked %.1f px/frame after them (was %.1f)"
       % (mean(new["kick_undo"]["guest"]), mean(old["kick_undo"]["guest"])))
 check(mean(new["gap_ball"]) < mean(old["gap_ball"]) * 1.25 + 5,

@@ -79,112 +79,271 @@ for gap, want in ((900, True), (150, False)):
     d = doll(["accelerator"]); d.ball_ref = ball_at((d.pos.x + gap, d.pos.y)); d.ctx = {}
     d.throw(V(1, 0.0), 1500); check("accelerator %s, ball %dpx away" % ("fires" if want else "quiet", gap), ("accelerator" in d.ps_flash) == want)
 
-# 7 rapid: throw while carrying
-d = doll(["rapid"]); b = ball_at((d.pos.x + 60, d.pos.y)); b.carrier, b.carrier_t = d, 0.8; d.ball_ref = b
-d.throw(V(1, -0.2), 1500); check("rapid fires when carrying, ball knocked on", "rapid" in d.ps_flash and b.vel.x > 200, "ball vx %.0f" % b.vel.x)
 
-# 8 rush out: keeper only, ball in own box
-d = doll(["rushout"], gk=True, x=300); b = ball_at((420, d.pos.y)); d.ball_ref = b
-d.throw(V(1, -0.2), 1500); check("rush out fires for a keeper", "rushout" in d.ps_flash, "wait %.2f" % d.throw_timer)
-d = doll(["rushout"], gk=False, x=300); d.ball_ref = b
-d.throw(V(1, -0.2), 1500); check("rush out does nothing on an outfield player", "rushout" not in d.ps_flash)
+# ---------------------------------------------------------------------------------------------
+# 6 Nov: what each one DOES, and that you can see it - the ball's path, the players
+# ---------------------------------------------------------------------------------------------
+GAME = Run(save={}).g
+SEGS = GAME.segments
 
-# 9 anticipate: steal a carried ball
-c = doll([], x=1000, facing=-1); t = doll(["anticipate"], x=900)
-b = ball_at((t.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, t.pos.y + 10), (-200, 0)); b.carrier, b.carrier_t = c, 0.8
-t.vel = V(300, 0); hit(t, b)
-check("anticipate steals cleanly", "anticipate" in t.ps_flash and b.carrier is t and b.vel.x > 0, "ball vx %.0f" % b.vel.x)
-check("anticipate leaves the carrier stunned", c.throw_timer >= rf.PS_STUN * 0.99, "his wait %.2f" % c.throw_timer)
 
-# 10 guardian: barge the carrier
-a = doll(["guardian"], x=900); hb = doll([], x=900 + 2 * rf.BODY_R - 8, facing=-1)
-a.vel = V(1200, 0); hb.vel = V(-200, 0)
-b = ball_at((hb.pos.x + 60, hb.pos.y)); b.carrier, b.carrier_t = hb, 0.8
-rf.player_vs_player(a, hb, sfx, b)
-check("guardian wins the ball off the carrier", "guardian" in a.ps_flash and b.carrier is a and b.vel.x < 0, "ball vx %.0f" % b.vel.x)
-check("guardian leaves the carrier stunned", hb.throw_timer >= rf.PS_STUN * 0.99, "his wait %.2f" % hb.throw_timer)
+def fly(b, secs=2.0, stop_in_goal=True):
+    """Step the ball through the world (crossbars and all); returns the points it passed."""
+    pts = [V(b.pos)]
+    for _ in range(int(secs * 480)):
+        b.step(1 / 480.0, SEGS, sfx, pt)
+        pts.append(V(b.pos))
+        if stop_in_goal and (b.pos.x > rf.WIDTH - rf.GOAL_DEPTH + b.radius or b.pos.x < rf.GOAL_DEPTH - b.radius):
+            break
+    return pts
 
-# 11 bruiser in a duel
-outs = []
-for keys in ((), ("bruiser",)):
-    A = doll(keys, x=900); B = doll([], x=900 + 2 * rf.BODY_R - 8, facing=-1)
-    A.vel = V(900, 0); B.vel = V(-900, 0)
-    rf.player_vs_player(A, B, sfx); outs.append(A.vel.x)
-check("bruiser keeps more of his speed in a duel", outs[1] > outs[0], "%.0f -> %.0f" % tuple(outs))
 
-# 12 deflector: keeper block goes up and wide
+def in_goal(b, facing=1):
+    past = b.pos.x > rf.WIDTH - rf.GOAL_DEPTH + b.radius if facing > 0 else b.pos.x < rf.GOAL_DEPTH - b.radius
+    return past and b.pos.y >= rf.GROUND_Y - rf.GOAL_HEIGHT + rf.CROSSBAR_THICK * 0.5
+
+
+def bend(pts):
+    """How far the flight strays from the straight line between its ends (px)."""
+    a, c = pts[0], pts[-1]
+    d = c - a
+    if d.length() < 1:
+        return 0.0
+    nrm = V(-d.y, d.x).normalize()
+    return max(abs((p - a).dot(nrm)) for p in pts)
+
+
+def strike(key, x, y=None, vel=(1800, 0), dy=10, ctx=None, level=2, **kw):
+    d = doll([key], x=x, level=level, **kw)
+    if y is not None:
+        d.pos = V(d.pos.x, y); d.grounded = False
+    d.ctx = dict(ctx or {})
+    d.vel = V(*vel)
+    dv = d.vel.normalize()
+    b = ball_at((d.pos.x + dv.x * (rf.BODY_R + rf.BALL_RADIUS - 6), d.pos.y + dy + dv.y * (rf.BODY_R + rf.BALL_RADIUS - 6)))
+    hit(d, b)
+    return d, b
+
+# FINESSE: it really curls - out low, and up into the top corner
+best = None
+for dy in range(-80, 81, 8):
+    d = doll(["finesse"], x=rf.WIDTH - 1300, level=2); d.pos = V(d.pos.x, rf.GROUND_Y - 300); d.grounded = False
+    d.vel = V(1500, 0)
+    b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 4, d.pos.y + dy)); hit(d, b)
+    if b.move is not None and b.move["k"] == "finesse":
+        best = (d, b); break
+check("finesse fires on a spun hit and puts the ball on its curl", best is not None)
+if best:
+    d, b = best
+    pts = fly(b)
+    top = rf.GROUND_Y - rf.GOAL_HEIGHT * 0.5
+    check("...it curls: %.0f px off the straight line" % bend(pts), bend(pts) > 60)
+    check("...and goes in, in the top half of the goal", in_goal(b) and pts[-1].y < top, "ends (%.0f, %.0f)" % tuple(pts[-1]))
+
+# POWER SHOT: a fireball - dead straight, and straight THROUGH a man in the way
+d, b = strike("power", rf.WIDTH - 900, vel=(1800, 0))
+check("power shot is a fireball path", b.move is not None and b.move["k"] == "power")
+wall = doll([], x=rf.WIDTH - 600, facing=-1); wall.pos = V(rf.WIDTH - 600, (b.pos.y + b.move["p2"][1]) * 0.5 if b.move else 700)
+pts = [V(b.pos)]
+for _ in range(960):
+    b.step(1 / 480.0, SEGS, sfx, pt); pts.append(V(b.pos))
+    rf.ball_vs_player(b, wall, sfx, pt, lambda *a, **k: None)
+    if in_goal(b):
+        break
+check("...it goes through him and in", in_goal(b), "ends (%.0f, %.0f)" % tuple(b.pos))
+check("...and he's blasted back, dazed", wall.vel.x > 500 and wall.daze_t > 0, "his vx %.0f" % wall.vel.x)
+check("...on a straight line", bend(pts) < 30, "%.0f px off" % bend(pts))
+
+# CLINICAL: locks on to the corner furthest from him - you see the crosshair
+for opp_y, want in ((rf.GROUND_Y - 60, "top"), (rf.GROUND_Y - rf.GOAL_HEIGHT + 40, "low")):
+    rf.PS_FX.clear()
+    opp = doll([], x=rf.WIDTH - 260, facing=-1); opp.pos = V(rf.WIDTH - 260, opp_y)
+    d = doll(["clinical"], x=rf.WIDTH - 700); d.opp_ref = opp; d.vel = V(1000, 0)
+    b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y + 10)); hit(d, b)
+    ok = b.move is not None and b.move["k"] == "clinical"
+    goes = b.move["p2"][1] < rf.GROUND_Y - rf.GOAL_HEIGHT * 0.5 if ok else None
+    check("clinical: keeper %s -> it goes %s" % ("low" if want == "top" else "high", want),
+          ok and goes == (want == "top") and any(f["kind"] == "cross" for f in rf.PS_FX))
+
+# CHIP SHOT: up into the sky, drops in under the bar
+d = doll(["chip"], x=rf.WIDTH - 800); d.ctx = {"opp_off_line": True}; d.vel = V(600, -1100)
+dv = d.vel.normalize(); b = ball_at((d.pos.x + dv.x * 260, d.pos.y + dv.y * 260)); hit(d, b)
+check("chip shot is a lob path", b.move is not None and b.move["k"] == "chip")
+if b.move:
+    y0 = b.pos.y
+    pts = fly(b, 3.0)
+    check("...it goes way up (%.0f px above where it was hit)" % (y0 - min(p.y for p in pts)), y0 - min(p.y for p in pts) > 250)
+    check("...and drops in under the bar", in_goal(b), "ends (%.0f, %.0f)" % tuple(b.pos))
+
+# PENALTY EXPERT: the knuckleball - it wobbles side to side on its way in
+d, b = strike("penalty", rf.WIDTH - 1000, vel=(700, 0))
+check("penalty is a knuckleball path", b.move is not None and b.move["k"] == "penalty" and b.move["wob"] > 0)
+if b.move:
+    m = dict(b.move)
+    a, c = rf.Vector2(m["p0"]), rf.Vector2(m["p2"]); nrm = rf.Vector2(-(c - a).y, (c - a).x).normalize()
+    pts = fly(b)
+    side = [(p - a).dot(nrm) for p in pts]
+    flips = sum(1 for i in range(1, len(side)) if (side[i] > 4) != (side[i - 1] > 4))
+    check("...it wobbles (%d swings)" % flips, flips >= 3)
+    check("...and goes in", in_goal(b), "ends (%.0f, %.0f)" % tuple(b.pos))
+
+# WHIPPED CROSS: the dipper - up, then down into the goal mouth
+d = doll(["whipped"], x=420); d.vel = V(700, -1100)
+dv = d.vel.normalize(); b = ball_at((d.pos.x + dv.x * 260, d.pos.y + dv.y * 260)); hit(d, b)
+check("whipped cross is a dipper path", b.move is not None and b.move["k"] == "whipped")
+if b.move:
+    y0 = b.pos.y
+    pts = fly(b, 3.0)
+    check("...it rises then dives in, well under the bar", min(p.y for p in pts) < y0 - 150 and in_goal(b) and b.pos.y > rf.GROUND_Y - rf.GOAL_HEIGHT + 120,
+          "ends (%.0f, %.0f)" % tuple(b.pos))
+
+# PRECISION HEADER: a bullet header in their half, a huge clearance in yours
+d = doll(["header"]); d.pos = V(1400, 600); d.grounded = False; d.vel = V(900, -200)
+hp = d.to_world(d.HEAD_LOCAL); b = ball_at((hp.x + rf.HEAD_R + rf.BALL_RADIUS - 6, hp.y)); hit(d, b)
+check("header in their half: on a line into the goal", b.move is not None and b.move["k"] == "header")
+if b.move:
+    fly(b); check("...and in", in_goal(b), "ends (%.0f, %.0f)" % tuple(b.pos))
+d = doll(["header"], x=500); d.pos = V(500, 600); d.grounded = False; d.vel = V(900, -200)
+hp = d.to_world(d.HEAD_LOCAL); b = ball_at((hp.x + rf.HEAD_R + rf.BALL_RADIUS - 6, hp.y)); x0 = b.pos.x; hit(d, b)
+check("header in your half: a towering clearance", b.move is not None and b.move["k"] == "clear")
+if b.move:
+    while b.move is not None:
+        b.step(1 / 480.0, SEGS, sfx, pt)
+    check("...that lands far upfield (%.0f px)" % (b.pos.x - x0), b.pos.x - x0 > 900)
+
+# BULLET PASS: a laser - flat, not dropping
+d, b = strike("bullet", 500, vel=(900, 0))
+check("bullet pass is a laser path", b.move is not None and b.move["k"] == "bullet")
+if b.move:
+    y0, x0 = b.pos.y, b.pos.x
+    pts = []
+    while b.move is not None:
+        b.step(1 / 480.0, SEGS, sfx, pt); pts.append(V(b.pos))
+    check("...dead flat for %.0f px" % (pts[-1].x - x0), pts[-1].x - x0 > 1000 and max(abs(p.y - y0) for p in pts) < 3)
+
+# DEFLECTOR: the parry, up and away, landing far upfield
 d = doll(["deflector"], gk=True, x=300); d.ctx = {"own_half": True}
-b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y - 10), (-1600, 0)); hit(d, b)
-check("deflector pushes a shot up and away", "deflector" in d.ps_flash and b.vel.y < 0 and b.vel.x > 0, "(%.0f, %.0f)" % (b.vel.x, b.vel.y))
+b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y - 10), (-1600, 0)); x0 = b.pos.x; hit(d, b)
+check("deflector parries it onto an arc", "deflector" in d.ps_flash and b.move is not None and b.move["k"] == "parry")
+if b.move:
+    while b.move is not None:
+        b.step(1 / 480.0, SEGS, sfx, pt)
+    check("...that lands far upfield (%.0f px)" % (b.pos.x - x0), b.pos.x - x0 > 900)
 
-# 13 bullet: flat and zipping
-d = doll(["bullet"]); d.vel = V(900, 0); b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y + 10)); hit(d, b)
-check("bullet pass stays flat", "bullet" in d.ps_flash and b.vel.y > -abs(b.vel.x) * 0.13 and b.zip_t > 0, "(%.0f, %.0f)" % (b.vel.x, b.vel.y))
+# ---- the PASSIVE ones (6 Nov, Hubi: "playstyles are passive abilities"): each makes HIS throw,
+# touch or duel a bit better in its moment, and none of them ever moves him or the ball by itself
+def throw_speed(keys, setup, direction=(1, -0.2), power=1500, **kw):
+    d = doll(keys, **kw)
+    b = setup(d)
+    x0 = d.pos.x
+    d.throw(V(*direction), power)
+    return d, b, x0
 
-# 14 tiki taka: a moving ball taken first time with a soft touch - yours, and you go again at once
+
+def carry(d):
+    b = ball_at((d.pos.x + 60, d.pos.y)); b.carrier, b.carrier_t = d, 0.8; d.ball_ref = b
+    return b
+
+# RAPID: quicker on the ball
+plain, _b, _x = throw_speed([], carry)
+d, b, x0 = throw_speed(["rapid"], carry)
+check("rapid: a quicker launch with the ball (%.0f vs %.0f)" % (d.vel.length(), plain.vel.length()),
+      "rapid" in d.ps_flash and d.vel.length() > plain.vel.length() * 1.08)
+check("...and the ball stays his a bit longer - but it isn't stuck to him", b.carrier_t > 0.8 and b.glue is None)
+
+# TIKI TAKA: a cleaner first touch, the next throw sooner (not at once)
 d = doll(["tikitaka"]); d.vel = V(200, 0); d.throw_timer = 0.3
 b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y + 10), (-600, 0)); hit(d, b)
-check("tiki taka fires on a first-time soft touch", "tikitaka" in d.ps_flash and b.vel.x > 0 and d.throw_timer == 0.0,
-      "ball vx %.0f, wait %.2f" % (b.vel.x, d.throw_timer))
+check("tiki taka: next throw comes round sooner (%.2f, was 0.30), and nothing is stuck" % d.throw_timer,
+      "tikitaka" in d.ps_flash and 0.0 < d.throw_timer < 0.3 and b.glue is None)
 d = doll(["tikitaka"]); d.vel = V(200, 0)
 b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y + 10), (-100, 0)); hit(d, b)
 check("tiki taka quiet on a slow ball", "tikitaka" not in d.ps_flash)
 
-# 15 trickster: carrying, opponent close
-d = doll(["trickster"]); d.ctx = {"near_opp": True}; d.vel = V(260, 0)
-b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, d.pos.y + 10), (-100, 0)); b.carrier, b.carrier_t = d, 0.8; hit(d, b)
-check("trickster fires carrying near an opponent", "trickster" in d.ps_flash)
+# TRICKSTER: sharper turns with the ball near him
+def turn(keys):
+    d = doll(keys, x=1000); d.vel = V(1200, 0); d.ctx = {"near_opp": True}
+    opp = doll([], x=1150, facing=-1); d.opp_ref = opp
+    carry(d); x0 = d.pos.x
+    d.throw(V(-1, -0.2), 1500)
+    return d, opp, x0
+plain, _o, _x = turn([])
+d, opp, x0 = turn(["trickster"])
+check("trickster: a sharper turn - less of the old run carried over (vx %.0f vs %.0f)" % (d.vel.x, plain.vel.x),
+      "trickster" in d.ps_flash and d.vel.x < plain.vel.x - 50)
+check("...he stays where he is, and his man isn't frozen", d.pos.x == x0 and opp.throw_timer == 0.0
+      and getattr(opp, "daze_t", 0.0) == 0.0)
 
-# 16 chip: under the ball, their keeper off his line
-d = doll(["chip"], x=rf.WIDTH - 800); d.ctx = {"opp_off_line": True}; d.vel = V(600, -1100)
-dv = d.vel.normalize(); b = ball_at((d.pos.x + dv.x * 260, d.pos.y + dv.y * 260)); hit(d, b)
-# the lob: follow the ball's own arc and see where it comes down at the goal line
-lob_ok = False
-if "chip" in d.ps_flash:
-    p, v = V(b.pos), V(b.vel)
-    for _ in range(2000):
-        hh = 1 / 240.0
-        v.y += rf.BALL_GRAVITY * hh
-        v *= 1.0 - rf.BALL_AIR_DRAG * hh
-        p += v * hh
-        if p.x >= rf.WIDTH - rf.GOAL_DEPTH:
-            lob_ok = rf.GROUND_Y - rf.GOAL_HEIGHT < p.y < rf.GROUND_Y
-            break
-check("chip shot lobs and drops under the bar", lob_ok, "vel (%.0f, %.0f) arrives y %.0f" % (b.vel.x, b.vel.y, p.y))
+# RELENTLESS: behind / late - a bit harder, a bit sooner
+def clutch(keys, on=True):
+    d = doll(keys); d.ball_ref = ball_at((d.pos.x + 400, d.pos.y)); d.ctx = {"clutch": on}
+    d.throw(V(1, -0.2), 1500)
+    return d
+plain, d = clutch([]), clutch(["relentless"])
+check("relentless: a bit harder (%.0f vs %.0f) and ready sooner (%.2f vs %.2f)" % (d.vel.length(), plain.vel.length(),
+      d.throw_timer, plain.throw_timer), "relentless" in d.ps_flash and d.vel.length() > plain.vel.length() * 1.03
+      and d.throw_timer < plain.throw_timer)
+check("relentless quiet when it isn't", "relentless" not in clutch(["relentless"], on=False).ps_flash)
 
-# 17 whipped: far out, rising
-d = doll(["whipped"], x=420); d.vel = V(700, -1100)
-dv = d.vel.normalize(); b = ball_at((d.pos.x + dv.x * 260, d.pos.y + dv.y * 260)); hit(d, b)
-check("whipped cross fires from far out", "whipped" in d.ps_flash and b.bend > 0, "bend %.2f" % b.bend)
+# GUARDIAN: stronger in duels in your own half, cleaner tackles
+def duel(keys, own):
+    A = doll(keys, x=900); B = doll([], x=900 + 2 * rf.BODY_R - 8, facing=-1)
+    A.ctx = {"own_half": own}; B.ctx = {}
+    A.vel = V(900, 0); B.vel = V(-900, 0)
+    rf.player_vs_player(A, B, sfx)
+    return A, B
+plain, _B = duel([], True)
+A, B = duel(["guardian"], True)
+check("guardian: holds his ground better in his own half (vx %.0f vs %.0f)" % (A.vel.x, plain.vel.x),
+      "guardian" in A.ps_flash and A.vel.x > plain.vel.x)
+A2, _B = duel(["guardian"], False)
+check("...but not in theirs", abs(A2.vel.x - plain.vel.x) < 1.0)
+check("...and nobody is knocked flat or stunned", B.throw_timer == 0.0 and getattr(B, "daze_t", 0.0) == 0.0)
 
-# 18 relentless: stamina
-r = Run(save={}); g = r.g
-card = dict(next(c for c in g.cards.values() if c.get("ps")))
-card["ps"] = ((rf.PS_BY_KEY["relentless"], 1),)
-check("relentless: a half costs less stamina", g.half_cost(card) < rf.STAMINA_PER_HALF, "%d vs %d" % (g.half_cost(card), rf.STAMINA_PER_HALF))
+# BRUISER: stronger in hard duels, harder to knock off the ball
+outs = []
+for keys in ((), ("bruiser",)):
+    A, B = duel(keys, False); outs.append((A.vel.x, B.vel.x))
+check("bruiser: keeps more of his speed in a hard duel (%.0f vs %.0f)" % (outs[1][0], outs[0][0]), outs[1][0] > outs[0][0])
+check("...without sending him flying (his vx %.0f vs %.0f)" % (outs[1][1], outs[0][1]), outs[1][1] < outs[0][1] + 400)
 
-# finesse: spun hit bends earlier
-ok = False
-for dy in range(-80, 81, 8):
-    for keys in (("finesse",),):
-        d = doll(keys, x=rf.WIDTH - 1400); d.pos = V(d.pos.x, rf.GROUND_Y - 420); d.grounded = False; d.vel = V(1500, 0)
-        b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 4, d.pos.y + dy)); hit(d, b)
-        if "finesse" in d.ps_flash:
-            ok = True
-check("finesse fires on a spun hit", ok)
-# ...and it is a real curler: much more bend than the same hit without it
-bends = {}
-for keys in ((), ("finesse",)):
-    best = 0.0
-    for dy in range(-80, 81, 8):
-        d = doll(keys, x=rf.WIDTH - 1400); d.pos = V(d.pos.x, rf.GROUND_Y - 420); d.grounded = False; d.vel = V(1500, 0)
-        b = ball_at((d.pos.x + rf.BODY_R + rf.BALL_RADIUS - 4, d.pos.y + dy)); hit(d, b)
-        best = max(best, b.bend)
-    bends[keys] = best
-check("finesse bends far more", bends[("finesse",)] > bends[()] + 0.2 and bends[("finesse",)] >= 0.40,
-      "%.2f -> %.2f rad" % (bends[()], bends[("finesse",)]))
+# ANTICIPATE: quicker off the mark in your own half, and after a touch
+def own(keys, own_half=True, touched=False):
+    d = doll(keys); d.ball_ref = ball_at((d.pos.x + 400, d.pos.y)); d.ctx = {"own_half": own_half}
+    if touched:
+        d.read_t = 1.5
+    d.throw(V(1, -0.2), 1500)
+    return d
+plain = own([])
+d = own(["anticipate"])
+check("anticipate: quicker off the mark in his own half (%.0f vs %.0f)" % (d.vel.length(), plain.vel.length()),
+      "anticipate" in d.ps_flash and d.vel.length() > plain.vel.length() * 1.05)
+d2 = own(["anticipate"], own_half=False)
+d3 = own(["anticipate"], own_half=False, touched=True)
+check("...not in theirs, but quicker again just after a touch (%.0f vs %.0f)" % (d3.vel.length(), d2.vel.length()),
+      abs(d2.vel.length() - plain.vel.length()) < 1.0 and d3.vel.length() > d2.vel.length() * 1.08)
+t = doll(["anticipate"]); t.vel = V(600, 0)
+b = ball_at((t.pos.x + rf.BODY_R + rf.BALL_RADIUS - 6, t.pos.y + 10)); hit(t, b)
+check("...a touch starts that moment", getattr(t, "read_t", 0.0) > 0.0)
+check("...and it never moves him by itself", not hasattr(rf, "ps_anticipate"))
 
-# 28 Oct: a PlayStyle can't fire again until its cooldown is over
+# RUSH OUT: a keeper comes off his line quicker, and is ready again sooner
+def rush(keys, gk=True):
+    k = doll(keys, gk=gk, x=300); b = ball_at((520, k.pos.y)); k.ball_ref = b
+    k.throw(V(1, -0.2), 1500)
+    return k, b
+plain, _b = rush([])
+k, b = rush(["rushout"])
+check("rush out: off his line quicker (%.0f vs %.0f) and ready sooner (%.2f vs %.2f)" % (k.vel.length(), plain.vel.length(),
+      k.throw_timer, plain.throw_timer), "rushout" in k.ps_flash and k.vel.length() > plain.vel.length() * 1.1
+      and k.throw_timer < plain.throw_timer)
+check("...no catch: the ball is just a ball", b.glue is None)
+
+# ACCELERATOR: a streak
+d = doll(["accelerator"]); d.ball_ref = ball_at((d.pos.x + 900, d.pos.y)); d.ctx = {}
+d.throw(V(1, 0.0), 1500); check("accelerator: speed lines and a bigger launch", d.streak_t > 0 and d.vel.x > 2200, "vx %.0f" % d.vel.x)
+
+# the cooldown
 def power_hit(cool=None):
     d = doll(["power"]); d.vel = V(1800, 0)
     if cool is not None:
@@ -199,22 +358,14 @@ d3 = doll(["power"]); d3.ps_cool = dict(d1.ps_cool); d3.tick_styles(rf.PS_COOL["
 d4 = power_hit(d3.ps_cool)
 check("...and fires again once it's over", "power" in d4.ps_flash)
 
-# the stuns: Guardian, Anticipate and Trickster leave the other player unable to throw for a moment
-d = doll(["trickster"]); opp = doll([], x=1100, facing=-1); d.opp_ref = opp
-b = ball_at((d.pos.x + 60, d.pos.y)); b.carrier, b.carrier_t = d, 0.8; d.ball_ref = b; d.ctx = {"near_opp": True}
-d.throw(V(-1, -0.2), 1500)
-check("trickster: a sharp turn through him, and he's frozen", "trickster" in d.ps_flash and d.trick_t > 0
-      and opp.throw_timer >= rf.PS_STUN * 0.99, "his wait %.2f" % opp.throw_timer)
-d = doll(["relentless"]); d.ball_ref = ball_at((d.pos.x + 400, d.pos.y)); d.ctx = {"clutch": True}
-d.throw(V(1, -0.2), 1500)
-check("relentless fires when behind / late", "relentless" in d.ps_flash)
-d = doll(["relentless"]); d.ball_ref = ball_at((d.pos.x + 400, d.pos.y)); d.ctx = {"clutch": False}
-d.throw(V(1, -0.2), 1500)
-check("relentless quiet when it isn't", "relentless" not in d.ps_flash)
 
-# the popup and the HUD don't crash
+# relentless still saves stamina
+r = Run(save={}); g = r.g
+card = dict(next(c for c in g.cards.values() if c.get("ps")))
+card["ps"] = ((rf.PS_BY_KEY["relentless"], 1),)
+check("relentless: a half costs less stamina", g.half_cost(card) < rf.STAMINA_PER_HALF)
+# the badge pops
 d = doll(["header"]); d.ps_fire("header"); d.tick_styles(0.3)
 check("badge pops over the player", d.ps_pop is not None and d.ps_pop[0] == "header")
 print("\n%d failed" % len(fails), fails)
-
 sys.exit(1 if fails else 0)

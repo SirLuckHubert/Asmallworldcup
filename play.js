@@ -8,13 +8,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
-  collection, addDoc, query, orderBy, limit,
+  collection, addDoc, query, orderBy, limit, runTransaction,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, GAME_PATH } from "./firebase-config.js?v=2026-11-06c";
-import { Net } from "./net.js?v=2026-11-06c";
-import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06c";
-import { checkText } from "./words.js?v=2026-11-06c";
-import { mergeIntoSaveText } from "./mail.js?v=2026-11-06c";
+import { firebaseConfig, GAME_PATH, ADMIN_EMAIL, ADS_CLIENT, ADS_TEST } from "./firebase-config.js?v=2026-11-06h";
+import { Net } from "./net.js?v=2026-11-06h";
+import { rankOf, rpAfter, rankLine, START_RP } from "./ranks.js?v=2026-11-06h";
+import { checkText } from "./words.js?v=2026-11-06h";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06h";
 
 const SAVE_KEY = "aswc_save";
 const SAVE_DEBOUNCE = 2000;
@@ -96,6 +96,7 @@ if (auth) onAuthStateChanged(auth, async (user) => {
 
   const d = snap.exists() ? snap.data() : {};
   me = {
+    owner: String(user.email || "").toLowerCase() === String(ADMIN_EMAIL).toLowerCase(),   // 6 Nov
     uid: user.uid,
     username: d.username || (user.displayName || "Player").slice(0, 12),
     rp: typeof d.rp === "number" ? d.rp : START_RP,
@@ -340,6 +341,8 @@ window.addEventListener("message", (e) => {
     let text = null;
     try { text = localStorage.getItem(SAVE_KEY); } catch (err) { /* ignore */ }
     if (text && frame) frame.contentWindow.postMessage({ type: "aswc-load", save: text }, location.origin);
+    // 6 Nov: the owner's two profile pictures unlock only for the admin account
+    if (frame) frame.contentWindow.postMessage({ type: "aswc-owner", owner: !!(me && me.owner) }, location.origin);
   } else if (e.data.type === "aswc-save" && typeof e.data.save === "string") {
     pending = e.data.save;
     setSync("saving");
@@ -354,6 +357,10 @@ window.addEventListener("message", (e) => {
     else if (net && net.connected) net.send(msg);          // snapshots / inputs / chat
   } else if (e.data.type === "aswc-chat" && e.data.text) {
     sendChat(e.data.text);
+  } else if (e.data.type === "aswc-ad") {
+    showRewardAd();
+  } else if (e.data.type === "aswc-code") {
+    codePrompt();
   } else if (e.data.type === "aswc-result" && e.data.result) {
     let res = null;
     try { res = JSON.parse(e.data.result); } catch (err) { return; }
@@ -362,6 +369,124 @@ window.addEventListener("message", (e) => {
 });
 
 window.addEventListener("beforeunload", () => { if (net) net.cleanup(); });
+
+// ---------------------------------------------------------------- codes (6 Nov)
+// The game's CODES button posts "aswc-code"; this asks for the code, checks it in Firestore and uses it
+// up for this account in one go (a transaction: the claim + one more "used"), then hands the game
+// "aswc-coderesult" {ok, why, code, gift}.
+function codeAnswer(msg) {
+  if (frame) frame.contentWindow.postMessage(Object.assign({ type: "aswc-coderesult" }, msg), location.origin);
+}
+
+async function redeemCode(raw) {
+  const code = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20);
+  if (!code) return codeAnswer({ ok: false, why: "empty" });
+  if (!me || !db) return codeAnswer({ ok: false, why: "offline" });
+  const ref = doc(db, "codes", code);
+  const claim = doc(db, "codes", code, "claims", me.uid);
+  try {
+    const gift = await runTransaction(db, async (tx) => {
+      const c = await tx.get(ref);
+      if (!c.exists()) throw new Error("nocode");
+      const d = c.data();
+      if (d.expires && Date.now() > d.expires) throw new Error("expired");
+      if ((d.used || 0) >= (d.max || 0)) throw new Error("full");
+      if ((await tx.get(claim)).exists()) throw new Error("used");
+      tx.update(ref, { used: (d.used || 0) + 1 });
+      tx.set(claim, { at: Date.now(), name: String(me.username || "").slice(0, 24) });
+      return { gems: d.gems || 0, coins: d.coins || 0, packs: d.packs || 0 };
+    });
+    codeAnswer({ ok: true, code, gift });
+  } catch (err) {
+    const why = ["nocode", "expired", "full", "used"].includes(err && err.message) ? err.message : "error";
+    codeAnswer({ ok: false, why, code });
+  }
+}
+
+function codePrompt() {
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;" +
+    "background:rgba(4,8,24,.72);font-family:system-ui,sans-serif";
+  box.innerHTML = '<form style="background:#101a3e;border:2px solid #7fd8ff;border-radius:18px;padding:26px 30px;' +
+    'width:min(360px,86vw);text-align:center;color:#fff"><div style="font-size:22px;font-weight:800;margin-bottom:12px">' +
+    'Enter a code</div><input id="codeIn" maxlength="20" autocomplete="off" autocapitalize="characters" ' +
+    'style="width:100%;box-sizing:border-box;font:inherit;font-size:22px;font-weight:800;letter-spacing:2px;' +
+    'text-align:center;text-transform:uppercase;padding:10px;border-radius:12px;border:1px solid #7f8fc0;' +
+    'background:#060c24;color:#fff;margin-bottom:16px"><br><button type="submit" style="font:inherit;font-weight:800;' +
+    'padding:10px 22px;border-radius:12px;border:0;background:#38e0b8;color:#04221c;margin-right:10px;cursor:pointer">' +
+    'REDEEM</button><button type="button" id="codeNo" style="font:inherit;padding:10px 18px;border-radius:12px;' +
+    'border:1px solid #7f8fc0;background:transparent;color:#cfd8ff;cursor:pointer">CANCEL</button></form>';
+  document.body.appendChild(box);
+  const input = box.querySelector("#codeIn");
+  input.focus();
+  box.querySelector("form").onsubmit = (ev) => { ev.preventDefault(); const v = input.value; box.remove(); redeemCode(v); };
+  box.querySelector("#codeNo").onclick = () => { box.remove(); codeAnswer({ ok: false, why: "cancel" }); };
+}
+
+// ---------------------------------------------------------------- rewarded ads (6 Nov, Season 1)
+// The game's WATCH AD button posts "aswc-ad" up to here. Google's H5 Games Ads (the Ad Placement API)
+// shows the ad over the page; the game hears back "aswc-adresult" {ok, why} and pays the gems only
+// when ok. Google asks for the ad to start from a click on the page itself, so when an ad is ready a
+// small "watch it?" box comes up and its button starts the ad.
+let adsLoaded = false, adBusy = false;
+
+function adAnswer(ok, why) {
+  adBusy = false;
+  if (frame) frame.contentWindow.postMessage({ type: "aswc-adresult", ok: !!ok, why: why || "" }, location.origin);
+}
+
+function loadAds() {
+  if (adsLoaded) return;
+  adsLoaded = true;
+  window.adsbygoogle = window.adsbygoogle || [];
+  window.adBreak = window.adConfig = function (o) { window.adsbygoogle.push(o); };
+  const s = document.createElement("script");
+  s.async = true;
+  s.crossOrigin = "anonymous";
+  s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(ADS_CLIENT);
+  s.setAttribute("data-ad-client", ADS_CLIENT);
+  s.setAttribute("data-ad-frequency-hint", "30s");
+  if (ADS_TEST) s.setAttribute("data-adbreak-test", "on");
+  document.head.appendChild(s);
+  window.adConfig({ preloadAdBreaks: "on", sound: "on" });
+}
+
+function adPrompt(onWatch, onSkip) {
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;" +
+    "background:rgba(4,8,24,.72);font-family:system-ui,sans-serif";
+  box.innerHTML = '<div style="background:#101a3e;border:2px solid #7fd8ff;border-radius:18px;padding:26px 30px;' +
+    'max-width:360px;text-align:center;color:#fff"><div style="font-size:22px;font-weight:800;margin-bottom:8px">' +
+    'Watch a short ad?</div><div style="opacity:.8;margin-bottom:18px">Watch it to the end for GEMS.</div>' +
+    '<button id="adGo" style="font:inherit;font-weight:800;padding:10px 22px;border-radius:12px;border:0;' +
+    'background:#38e0b8;color:#04221c;margin-right:10px;cursor:pointer">WATCH</button>' +
+    '<button id="adNo" style="font:inherit;padding:10px 18px;border-radius:12px;border:1px solid #7f8fc0;' +
+    'background:transparent;color:#cfd8ff;cursor:pointer">NOT NOW</button></div>';
+  document.body.appendChild(box);
+  box.querySelector("#adGo").onclick = () => { box.remove(); onWatch(); };
+  box.querySelector("#adNo").onclick = () => { box.remove(); onSkip(); };
+}
+
+function showRewardAd() {
+  if (!ADS_CLIENT) return adAnswer(false, "noads");
+  if (adBusy) return;
+  adBusy = true;
+  loadAds();
+  let answered = false, viewed = false;
+  const done = (ok, why) => { if (!answered) { answered = true; adAnswer(ok, why); } };
+  try {
+    window.adBreak({
+      type: "reward",
+      name: "gems",
+      beforeReward: (showAdFn) => adPrompt(() => showAdFn(), () => done(false, "skipped")),
+      adDismissed: () => done(false, "skipped"),
+      adViewed: () => { viewed = true; done(true, ""); },
+      adBreakDone: (info) => done(viewed, viewed ? "" : ((info && info.breakStatus) || "noad")),
+    });
+  } catch (err) {
+    done(false, "noad");
+  }
+}
 
 async function flushSave() {
   clearTimeout(saveTimer);

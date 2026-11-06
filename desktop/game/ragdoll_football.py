@@ -587,27 +587,80 @@ def _search_dirs():
     return dirs
 
 
+# 5 Nov (third pass): every lookup used to list the sprites folder (1,600 files) and normalise
+# every name in it, in Python, per call - and every card picture, pennant and flag the first time
+# it was drawn made a few. In the browser that file system is slow too. The folder doesn't change
+# while the game runs, so it is listed once and every answer is kept.
+_FIND_CACHE = {}
+_LISTING = None
+
+
+def _norm_name(t):
+    return t.lower().replace(" ", "_").replace("-", "_")
+
+
+def _listing():
+    """[(dir, [files in listdir order], {normalised name: first file with it})], made once."""
+    global _LISTING
+    if _LISTING is None:
+        out = []
+        for d in _search_dirs():
+            try:
+                files = os.listdir(d)
+            except Exception:
+                continue
+            exact = {}
+            for fn in files:
+                exact.setdefault(_norm_name(fn), fn)
+            out.append((d, files, exact))
+        _LISTING = out
+    return _LISTING
+
+
+def forget_files():
+    """New files were written (the art scripts, the tests): look again next time."""
+    global _LISTING
+    _LISTING = None
+    _FIND_CACHE.clear()
+
+
 def find_file(names, exts):
     """Find a file next to the script (or in the current folder, or one
     subfolder down). Case-insensitive; spaces/dashes count as underscores;
     also matches names with a prefix (e.g. 1abd5885-ballkick1.mp3)."""
-    norm = lambda t: t.lower().replace(" ", "_").replace("-", "_")
-    listing = []
-    for d in _search_dirs():
-        try:
-            listing.append((d, os.listdir(d)))
-        except Exception:
-            continue
-    for exact in (True, False):              # an exact name anywhere beats a prefixed one
-        for d, files in listing:
+    key = ("f", tuple(names), tuple(exts))
+    if key in _FIND_CACHE:
+        return _FIND_CACHE[key]
+    found = None
+    listing = _listing()
+    for d, files, exact in listing:                  # an exact name anywhere beats a prefixed one
+        for base in names:
+            for ext in exts:
+                fn = exact.get(_norm_name(base + ext))
+                if fn is not None:
+                    found = os.path.join(d, fn)
+                    break
+            if found:
+                break
+        if found:
+            break
+    if found is None:
+        for d, files, exact in listing:
             for base in names:
                 for ext in exts:
-                    want = norm(base + ext)
+                    want = "_" + _norm_name(base + ext)
                     for fn in files:
-                        low = norm(fn)
-                        if low == want if exact else low.endswith("_" + want):
-                            return os.path.join(d, fn)
-    return None
+                        if _norm_name(fn).endswith(want):
+                            found = os.path.join(d, fn)
+                            break
+                    if found:
+                        break
+                if found:
+                    break
+            if found:
+                break
+    _FIND_CACHE[key] = found
+    return found
 
 
 def load_raw(*base_names):
@@ -673,6 +726,13 @@ def find_sprite(name):
     """Exact name first (e.g. BRA_torso.png), then any PNG whose name contains
     a keyword for this piece. A kit piece prefers files naming its team and
     never takes one naming another team. Flags and ball.png are skipped."""
+    key = ("s", name)
+    if key not in _FIND_CACHE:
+        _FIND_CACHE[key] = _find_sprite(name)
+    return _FIND_CACHE[key]
+
+
+def _find_sprite(name):
     path = find_file((name,), (".png",))
     if path is not None:
         return path
@@ -822,8 +882,17 @@ def _budget(cache, size, mpx):
     """Keep a surface cache under a pixel budget - memory matters more than hit rate here."""
     total = getattr(cache, "px", 0) + int(size[0]) * int(size[1])
     if total > mpx * 1000000:
-        cache.clear()
-        total = int(size[0]) * int(size[1])
+        # 5 Nov: the oldest go until it's at 60%, rather than everything at once - a screen whose
+        # pictures didn't quite fit used to empty the cache, then rebuild all of it, every frame
+        for k in list(cache):
+            if total <= mpx * 600000:
+                break
+            v = cache.pop(k)
+            try:
+                total -= v.get_width() * v.get_height()
+            except Exception:
+                pass
+        total = max(total, int(size[0]) * int(size[1]))
     try:
         cache.px = total
     except AttributeError:
@@ -898,6 +967,7 @@ def tinted(img, colour, key):
     return out
 
 
+_VGRAD = {}          # home_vgrad's one-pixel columns
 _VEILS = []          # [(surface, colour)] - two solid sheets the size of the screen, refilled on a colour change
 
 
@@ -1039,7 +1109,7 @@ def scaled(img, size):
     key = (id(img), size)
     out = _FIT_CACHE.get(key)
     if out is None:
-        _budget(_FIT_CACHE, size, 6)
+        _budget(_FIT_CACHE, size, 8)
         out = pygame.transform.scale(img, size)
         _FIT_CACHE[key] = out
     return out
@@ -1052,7 +1122,7 @@ def smooth_scaled(img, size):
     key = (id(img), size, "smooth")
     out = _FIT_CACHE.get(key)
     if out is None:
-        _budget(_FIT_CACHE, size, 6)
+        _budget(_FIT_CACHE, size, 8)
         try:
             out = pygame.transform.smoothscale(img, size)
         except Exception:                   # a surface smoothscale will not take: scale it plainly
@@ -1326,6 +1396,191 @@ class Particles:
 
 
 # ==========================================================
+# PLAYSTYLE MOVES (6 Nov): each PlayStyle does something you can SEE
+# ==========================================================
+# Hubi: "the play styles should be able to be seen - like finesse shot actually curves into the
+# goal". Twice they'd been made stronger and they still felt like nothing, because a stronger hit
+# is a number, and you can't see a number. Now each one changes the SHAPE of what happens: the
+# ball flies a path you can watch (a curl into the top corner, a fireball, a towering lob, a
+# knuckleball), or it sticks to a player's feet, or a player does something no throw could (blinks
+# through his man, is knocked flat, catches fire). A path is still in the world: a body in the way
+# blocks it (except the fireball, which goes through), the woodwork stops it, and when it ends the
+# ball flies on by itself. Its trail says which PlayStyle it is.
+PS_FX = []                      # marks for the game to draw: rings, puffs, crosshairs (dicts)
+PS_FX_MAX = 40
+PS_LOOK = {                     # each path's / sticky ball's trail: colour, style
+    "finesse": ((140, 210, 255), "ribbon"), "power": ((255, 120, 30), "fire"),
+    "clinical": ((255, 70, 80), "laser"), "chip": ((255, 236, 170), "dots"),
+    "penalty": ((190, 255, 110), "zig"), "whipped": ((255, 160, 60), "ribbon"),
+    "header": ((245, 245, 255), "laser"), "clear": ((200, 220, 255), "dots"),
+    "bullet": ((80, 240, 255), "laser"), "parry": ((220, 235, 255), "dots"),
+    "rapid": ((255, 220, 70), "glue"), "tiki": ((110, 255, 150), "glue"), "trick": ((200, 120, 255), "glue"),
+    "catch": ((255, 255, 255), "glue"), "guard": ((120, 180, 255), "glue"), "steal": ((120, 220, 255), "glue")}
+PS_WOB_CYCLES = 5.0             # PENALTY EXPERT's knuckleball: wobbles this many times on the way
+
+
+def ps_mark(kind, pos, T=0.45, col=(246, 248, 252), r=60.0, **kw):
+    """Something for the game to draw where a PlayStyle just happened (real seconds)."""
+    if len(PS_FX) < PS_FX_MAX:
+        PS_FX.append(dict(kind=kind, pos=Vector2(pos), t=0.0, T=T, col=col, r=r, **kw))
+
+
+def ps_daze(doll, T):
+    """He can't throw for T, and the stars round his head say so."""
+    doll.throw_timer = max(getattr(doll, "throw_timer", 0.0), T)
+    doll.daze_t = max(getattr(doll, "daze_t", 0.0), T)
+
+
+def goal_spot(facing, where):
+    """A point just inside the goal a player facing `facing` attacks: "top", "low" or "mid"."""
+    x = WIDTH - GOAL_DEPTH + BALL_RADIUS + 46 if facing > 0 else GOAL_DEPTH - BALL_RADIUS - 46
+    top = GROUND_Y - GOAL_HEIGHT + CROSSBAR_THICK + BALL_RADIUS + 16
+    low = GROUND_Y - BALL_RADIUS - 12
+    return Vector2(x, {"top": top, "low": low, "mid": (top + low) * 0.5}[where])
+
+
+def path_point(m, u):
+    """Where a path puts the ball at u (0..1): a curve from p0 through the pull of c to p2, plus
+    the knuckleball's wobble (which dies away before it arrives)."""
+    (x0, y0), (cx, cy), (x2, y2) = m["p0"], m["c"], m["p2"]
+    a, b, c = (1.0 - u) ** 2, 2.0 * (1.0 - u) * u, u * u
+    x, y = a * x0 + b * cx + c * x2, a * y0 + b * cy + c * y2
+    if m.get("wob"):
+        dx, dy = x2 - x0, y2 - y0
+        ln = math.hypot(dx, dy) or 1.0
+        k = m["wob"] * math.sin(u * math.pi * PS_WOB_CYCLES) * (1.0 - u)
+        x, y = x - dy / ln * k, y + dx / ln * k
+    return x, y
+
+
+def path_vel(m, u):
+    (x0, y0), (cx, cy), (x2, y2) = m["p0"], m["c"], m["p2"]
+    return Vector2(2.0 * (1.0 - u) * (cx - x0) + 2.0 * u * (x2 - cx),
+                   2.0 * (1.0 - u) * (cy - y0) + 2.0 * u * (y2 - cy)) / m["T"]
+
+
+def path_clear(m):
+    """Does this path stay on the pitch, above the grass and clear of both crossbars?"""
+    bar_y = GROUND_Y - GOAL_HEIGHT
+    for i in range(1, 49):
+        x, y = path_point(m, i / 48.0)
+        if y > GROUND_Y - BALL_RADIUS + 2 or y < BALL_RADIUS or x < BALL_RADIUS or x > WIDTH - BALL_RADIUS:
+            return False
+        if (x < GOAL_DEPTH + BALL_RADIUS or x > WIDTH - GOAL_DEPTH - BALL_RADIUS) \
+                and abs(y - bar_y) < BALL_RADIUS + CROSSBAR_THICK:
+            return False
+    return True
+
+
+def start_path(ball, kind, owner, p2, cands, speed, L, wob=0.0):
+    """Put the ball on a path to p2, through the first of the pulls `cands` that keeps it clear of
+    the woodwork and the grass. False (nothing changes) if none does."""
+    p0 = (float(ball.pos.x), float(ball.pos.y))
+    for c in cands:
+        m = {"k": kind, "p0": p0, "c": (float(c[0]), float(c[1])), "p2": (float(p2[0]), float(p2[1])),
+             "t": 0.0, "wob": wob, "L": L, "id": random.getrandbits(30)}
+        pts = [path_point(m, i / 16.0) for i in range(17)]
+        ln = sum(math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(16))
+        m["T"] = max(0.16, ln / max(300.0, min(speed, BALL_SPEED_CAP)))
+        if path_clear(m):
+            ball.move, ball.move_owner, ball.move_grace = m, owner, 0.14
+            ball.glue = None
+            ball.vel = path_vel(m, 0.0)
+            ball.bend_t = ball.zip_t = ball.extra_g_t = 0.0
+            ball.carrier, ball.carrier_t = None, 0.0
+            ball.fx_kind, ball.fx_t = kind, m["T"] + 0.5
+            return True
+    return False
+
+
+def ps_glue(ball, doll, kind, T, L):
+    """The ball rides at his feet for T (RAPID, TIKI TAKA, TRICKSTER, a keeper's catch...)."""
+    ball.move = None
+    ball.glue = {"doll": doll, "k": kind, "t": 0.0, "T": T, "L": L,
+                 "dx": BODY_R + BALL_RADIUS + 10, "dy": FOOT_OFFSET - BALL_RADIUS - 4}
+    ball.carrier, ball.carrier_t = doll, CARRY_TIME
+    ball.fx_kind, ball.fx_t = kind, T + 0.25
+
+
+def ps_shot(ball, doll, key, L):
+    """The strike PlayStyles: the path each one puts the ball on. False if none is clear (then it
+    doesn't fire - a normal hit)."""
+    f = 1 if getattr(doll, "facing", 1) > 0 else -1
+    jit = (lambda: random.uniform(-20.0, 20.0)) if L < 1.5 else (lambda: 0.0)   # silver: a touch off
+    p0 = Vector2(ball.pos)
+    opp = getattr(doll, "opp_ref", None)
+    line_x = WIDTH - GOAL_DEPTH if f > 0 else GOAL_DEPTH
+    bar_y = GROUND_Y - GOAL_HEIGHT
+
+    def corners():                          # the corner furthest from the man in the way first
+        spots = [goal_spot(f, "top"), goal_spot(f, "low")]
+        if opp is not None:
+            spots.sort(key=lambda sp: -(sp - opp.pos).length())
+        return spots
+
+    def to_corner(kind, speed, spots, wob=0.0, jy=0.0):
+        """Straight-ish at a corner: the first corner (and pull) that is clear of the bar - from
+        above the bar the top corner can't be reached on a line, so then it's the low one."""
+        for sp in spots:
+            p2 = sp + Vector2(0, jy)
+            if start_path(ball, kind, doll, p2, [mid(p2), mid(p2, 90), mid(p2, -90), mid(p2, 200)], speed, L, wob=wob):
+                return p2
+        return None
+
+    def mid(p2, dy=0.0):
+        return ((p0.x + p2.x) * 0.5, (p0.y + p2.y) * 0.5 + dy)
+
+    def pull_for(p2, peak):                 # the pull that makes the flight top out at `peak`
+        return 2.0 * peak - 0.5 * (p0.y + p2[1])
+    if key == "finesse":                    # FINESSE: out low, then it curls UP into the top corner
+        p2 = goal_spot(f, "top") + Vector2(0, jit())
+        mx = p0.x + (p2.x - p0.x) * 0.55
+        cands = [(mx, min(GROUND_Y - 50, max(p0.y, p2.y) + k)) for k in (300, 200, 110)]
+        cands += [(mx, min(p0.y, p2.y) - 180)]                 # (from above the bar: it curls down)
+        return start_path(ball, "finesse", doll, p2, cands, 2100.0 + 350.0 * L, L)
+    if key == "power":                      # POWER SHOT: a fireball on a dead straight line
+        p2 = goal_spot(f, "mid") + Vector2(0, 50.0 + jit())
+        return start_path(ball, "power", doll, p2, [mid(p2), mid(p2, -60), mid(p2, 60)], 3500.0 + 700.0 * L, L)
+    if key == "clinical":                   # CLINICAL: locks on to the far corner from him
+        p2 = to_corner("clinical", 2800.0 + 500.0 * L, corners(), jy=jit() * 0.5)
+        if p2 is not None:
+            ps_mark("cross", p2, T=1.0, col=(255, 80, 90), r=46)
+        return p2 is not None
+    if key == "chip":                       # CHIP SHOT: up into the sky, and it drops in under the bar
+        p2 = Vector2(goal_spot(f, "top").x - f * 40, bar_y + GOAL_HEIGHT * 0.5 + jit())
+        cands = [(line_x - f * k, pull_for(p2, max(BALL_RADIUS + 40, min(p0.y, bar_y) - up)))
+                 for up in (380, 290, 200, 130) for k in (300, 420, 560, 720)]
+        return start_path(ball, "chip", doll, p2, cands, 1450.0 + 200.0 * L, L)
+    if key == "penalty":                    # PENALTY EXPERT: the knuckleball - it wobbles all the way
+        return to_corner("penalty", 2500.0 + 400.0 * L, corners(), wob=30.0 + 12.0 * L) is not None
+    if key == "whipped":                    # WHIPPED CROSS: the dipper - up, then down into the goal mouth
+        p2 = Vector2(goal_spot(f, "low").x, GROUND_Y - 60.0 + jit())
+        cands = [(line_x - f * k, pull_for(p2, max(BALL_RADIUS + 40, min(p0.y, bar_y) - up)))
+                 for up in (260, 180, 100) for k in (60, 160, 280, 420)]
+        return start_path(ball, "whipped", doll, p2, cands, 2500.0 + 400.0 * L, L)
+    if key == "header":
+        if (p0.x - WIDTH * 0.5) * f > 0:    # PRECISION HEADER: a bullet header into the corner
+            spots = [goal_spot(f, "low"), goal_spot(f, "top")]
+            if p0.y > bar_y + GOAL_HEIGHT * 0.5:
+                spots.reverse()             # (a low header goes high, a high one goes low)
+            return to_corner("header", 2700.0 + 450.0 * L, spots, jy=jit() * 0.5) is not None
+        land = Vector2(clamp(p0.x + f * (950.0 + 250.0 * L), 320, WIDTH - 320), GROUND_Y - BALL_RADIUS - 4)
+        cands = [((p0.x + land.x) * 0.5, pull_for(land, max(BALL_RADIUS + 40, min(p0.y, land.y) - up)))
+                 for up in (520, 400, 280)]
+        return start_path(ball, "clear", doll, land, cands, 1700.0 + 250.0 * L, L)   # ...or a huge clearance
+    if key == "bullet":                     # BULLET PASS: a laser - flat, not dropping, not slowing
+        y = clamp(p0.y, BALL_RADIUS + 10, GROUND_Y - BALL_RADIUS - 6)
+        x2 = clamp(p0.x + f * (1150.0 + 300.0 * L), BALL_RADIUS + 20, WIDTH - BALL_RADIUS - 20)
+        return start_path(ball, "bullet", doll, (x2, y), [((p0.x + x2) * 0.5, y)], 3200.0 + 500.0 * L, L)
+    if key == "deflector":                  # DEFLECTOR: the parry - up and away, landing far upfield
+        land = Vector2(clamp(p0.x + f * (1000.0 + 300.0 * L), 320, WIDTH - 320), GROUND_Y - BALL_RADIUS - 4)
+        cands = [((p0.x + land.x) * 0.5, pull_for(land, max(BALL_RADIUS + 40, min(p0.y, land.y) - up)))
+                 for up in (560, 420, 300)]
+        return start_path(ball, "parry", doll, land, cands, 1800.0 + 250.0 * L, L)
+    return False
+
+
+# ==========================================================
 # BALL
 # ==========================================================
 class Ball:
@@ -1347,10 +1602,16 @@ class Ball:
         self.carrier, self.carrier_t = None, 0.0   # who is dribbling it (shielding)
         self.zip_t = 0.0           # BULLET PASS / TIKI TAKA: less drag for a moment
         self.bend, self.bend_t, self.bend_goal = 0.0, 0.0, None   # a spun shot curling to goal
+        self.move, self.move_owner, self.move_grace = None, None, 0.0   # a PlayStyle's path (PS MOVES)
+        self.glue = None           # ...or riding at someone's feet
+        self.fx_kind, self.fx_t = None, 0.0                       # whose trail to draw, and how long
+        self.last_doll = None      # who touched it last (ANTICIPATE reads it)
         self.art = self._build_art()
 
     def _build_art(self):
-        raw = load_raw("ball", "football")
+        raw = load_raw("ball_" + BALL_SKIN) if BALL_SKIN != "classic" else None    # 6 Nov: ball skins
+        if raw is None:
+            raw = load_raw("ball", "football")
         if raw is not None:                       # pixel art: scale hard, never smooth it
             d = self.radius * 2
             k = min(d / raw.get_width(), d / raw.get_height())
@@ -1378,11 +1639,61 @@ class Ball:
         self.trail.clear()
         self.extra_g_t = 0.0
         self.ghost_t = 0.0
+        self.move, self.glue, self.fx_kind, self.fx_t, self.last_doll = None, None, None, 0.0, None
+
+    def ride_glue(self, h):
+        """Riding at his feet (RAPID, TIKI TAKA, TRICKSTER, GUARDIAN, a keeper's catch)."""
+        g = self.glue
+        d = g["doll"]
+        g["t"] += h
+        f = 1 if getattr(d, "facing", 1) > 0 else -1
+        want = Vector2(d.pos.x + f * g["dx"], min(d.pos.y + g["dy"], GROUND_Y - self.radius))
+        self.pos += (want - self.pos) * min(1.0, 22.0 * h)
+        self.pos.x = clamp(self.pos.x, self.radius, WIDTH - self.radius)
+        self.pos.y = min(self.pos.y, GROUND_Y - self.radius)
+        self.vel = Vector2(d.vel)
+        self.angle -= math.degrees(d.vel.x / self.radius) * h
+        self.carrier, self.carrier_t = d, CARRY_TIME
+        if g["t"] >= g["T"]:
+            self.glue = None
+            if g["k"] == "catch":                     # the keeper's punt: long and high, upfield
+                self.vel = Vector2(f * (1500.0 + 350.0 * g["L"]), -1250.0)
+                self.fx_kind, self.fx_t = "clear", 1.2
+            else:
+                self.vel = Vector2(d.vel) + Vector2(f * 160.0, -60.0)
+
+    def follow_move(self, h, segments, sfx, particles):
+        """On a PlayStyle's path: placed along it (the woodwork can still stop it)."""
+        m = self.move
+        self.move_grace = max(0.0, self.move_grace - h)
+        m["t"] += h
+        u = min(1.0, m["t"] / m["T"])
+        old = Vector2(self.pos)
+        self.pos.update(*path_point(m, u))
+        self.vel = path_vel(m, u) if (u >= 1.0 or not m.get("wob")) else (self.pos - old) / max(h, 1e-6)
+        self.angle -= math.degrees(self.vel.x / self.radius) * h * 0.6
+        if u >= 1.0:
+            self.move = None                          # the path is over: it flies on by itself
+        v0 = Vector2(self.vel)
+        for a, b, thick in segments:
+            self._collide_segment(a, b, thick, sfx, particles)
+        if self.move is not None and (self.vel - v0).length_squared() > 4.0:
+            self.move = None                          # the woodwork stopped it
 
     def step(self, h, segments, sfx, particles):
         if self.frozen:
             return
         h *= BALL_TIME                       # everything about the ball happens in its own, slower time
+        self.fx_t = max(0.0, self.fx_t - h)
+        if self.glue is not None or self.move is not None:
+            self.ghost_t = max(0.0, self.ghost_t - h)
+            self.home_ghost_t = max(0.0, self.home_ghost_t - h)
+            self.carrier_t = max(0.0, self.carrier_t - h)
+            if self.glue is not None:
+                self.ride_glue(h)
+            else:
+                self.follow_move(h, segments, sfx, particles)
+            return
         # 29 Oct: with no air drag any more, "zip" (BULLET PASS, TIKI TAKA, POWER SHOT) can't mean
         # "keeps its pace" in the air - every ball does now. It means "stays on a line" instead:
         # while it lasts the ball falls slower, so it flies flatter and further
@@ -1754,6 +2065,16 @@ class Player:
             return 0.0
         return self.ps(key)
 
+    def ps_passive(self, key):
+        """A PASSIVE PlayStyle in its moment (6 Nov, Hubi: "playstyles are passive abilities"):
+        its strength, 0 if he hasn't got it. It always works - it only changes how HIS throw or
+        touch behaves, never does anything for him. The badge lights when it's been quiet a while
+        (for these the cooldown is only the badge's)."""
+        L = self.ps(key)
+        if L and self.ps_ready(key):
+            self.ps_fire(key)
+        return L
+
     def ps_fire(self, key):
         """It just fired: light the badge, float the name, start its cooldown. Returns the strength."""
         L = self.ps(key)
@@ -1785,6 +2106,10 @@ class Player:
             if cool[k] <= 0.0:
                 del cool[k]
         self.trick_t = max(0.0, getattr(self, "trick_t", 0.0) - dt)
+        for name in ("streak_t", "daze_t", "read_t"):                   # (timers the PlayStyles use)
+            v = getattr(self, name, 0.0)
+            if v > 0.0:
+                setattr(self, name, max(0.0, v - dt))
         for k in list(self.ps_flash):
             self.ps_flash[k] -= dt
             if self.ps_flash[k] <= 0.0:
@@ -1916,31 +2241,35 @@ class Player:
             loose = getattr(ball, "carrier", None) is None or ball.carrier_t <= 0.0
             opp = getattr(self, "opp_ref", None)
             if gap > 380.0 and at_ball and loose and self.ps_ready("accelerator"):   # ACCELERATOR
-                L = self.ps_fire("accelerator")
-                power *= 1.0 + 0.75 * L                       # (was 0.24, 0.40)
-                self.cap_t, self.cap_k = 2.0, 1.0 + 0.55 * L   # (was 0.20, 0.32)
-            if carrying and n.x * self.facing > 0.2 and self.ps_ready("rapid"):       # RAPID
-                L = self.ps_fire("rapid")
-                power *= 1.0 + 0.55 * L                       # (was 0.18, 0.30)
-                knock = 1050.0 * L                             # (was 420, 640)
-            if carrying and self.ctx.get("near_opp") and self.ps_ready("trickster"):  # TRICKSTER
-                L = self.ps_fire("trickster")
-                keep *= clamp(1.0 - 0.92 * L, 0.02, 1.0)       # turns on the spot...
-                self.trick_t = 0.65                            # ...through him
-                ball.carrier, ball.carrier_t = self, CARRY_TIME
-                if opp is not None:
-                    opp.throw_timer = max(opp.throw_timer, PS_STUN * L)   # ...and he's frozen
-            if self.ctx.get("clutch") and self.ps_ready("relentless"):               # RELENTLESS
-                L = self.ps_fire("relentless")
-                power *= 1.0 + 0.55 * L                       # (was 0.15, 0.28)
-                wait_k *= clamp(1.0 - 0.75 * L, 0.1, 1.0)    # (was 0.40, 0.55)
+                L = self.ps_fire("accelerator")              # a streak: a far bigger launch, a higher top
+                power *= 1.0 + 0.60 * L                       # speed, and speed lines behind him
+                self.cap_t, self.cap_k = 2.0, 1.0 + 0.55 * L
+                self.streak_t = 1.0 + 0.3 * L
+            # ---- the passive ones (6 Nov): they change how THIS throw behaves, in their moment.
+            # L is 1 silver / 1.5 gold / 2 purple. Small on purpose - they're an edge, not a move.
+            if self.ctx.get("own_half") and self.ps(("anticipate")):        # ANTICIPATE: quicker off
+                power *= 1.0 + 0.08 * self.ps_passive("anticipate")         # the mark in your own half...
+            if getattr(self, "read_t", 0.0) > 0.0 and self.ps("anticipate"):
+                power *= 1.0 + 0.12 * self.ps("anticipate")                 # ...and just after a touch
+            if carrying and n.x * self.facing > 0.2 and self.ps("rapid"):   # RAPID: quicker on the ball
+                L = self.ps_passive("rapid")
+                power *= 1.0 + 0.12 * L
+                self.cap_t, self.cap_k = 0.8, 1.0 + 0.10 * L
+                ball.carrier_t = max(ball.carrier_t, CARRY_TIME * (1.0 + 0.4 * L))   # (it stays yours longer)
+            if carrying and self.ctx.get("near_opp") and self.ps("trickster"):        # TRICKSTER: sharper
+                L = self.ps_passive("trickster")                            # turns with the ball near him:
+                keep *= clamp(1.0 - 0.45 * L, 0.2, 1.0)                     # less of the old run carried over
+                wait_k *= 1.0 - 0.12 * L                                     # and ready again a bit sooner
+            if self.ctx.get("clutch") and self.ps("relentless"):            # RELENTLESS: behind / late,
+                L = self.ps_passive("relentless")                           # a bit harder, a bit sooner
+                power *= 1.0 + 0.06 * L
+                wait_k *= 1.0 - 0.15 * L
             own_x = GOAL_DEPTH if self.facing > 0 else WIDTH - GOAL_DEPTH
             if self.is_gk and abs(ball.pos.x - own_x) < GK_BOX and n.dot(to_ball) > 0.0 \
-                    and self.ps_ready("rushout"):                  # RUSH OUT
-                L = self.ps_fire("rushout")
-                power *= 1.0 + 0.85 * L                       # (was 0.30, 0.45)
-                self.cap_t, self.cap_k = 1.4, 1.0 + 0.45 * L
-                wait_k *= clamp(1.0 - 0.80 * L, 0.05, 1.0)
+                    and self.ps("rushout"):                                  # RUSH OUT: a keeper comes off
+                L = self.ps_passive("rushout")                              # his line quicker
+                power *= 1.0 + 0.15 * L
+                wait_k *= 1.0 - 0.25 * L
         self.vel = self.vel * keep + n * power
         if knock > 0.0:
             ball.vel += n * knock
@@ -2236,6 +2565,12 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     Only the deepest contact is resolved each step."""
     if ball.frozen:
         return False
+    g = getattr(ball, "glue", None)
+    if g is not None and (g["doll"] is doll or g["k"] == "catch"):
+        return False                       # it rides at his feet / sits in the keeper's gloves
+    m = getattr(ball, "move", None)
+    if m is not None and doll is getattr(ball, "move_owner", None) and ball.move_grace > 0.0:
+        return False                       # (his own boot, the moment after the strike)
     best = None
     top, bot = doll.body_segment()
     cp = closest_on_segment(ball.pos, top, bot)
@@ -2258,6 +2593,26 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     d = ball.pos - centre
     dist = d.length()
     n = d / dist if dist > 1e-6 else Vector2(0, -1)
+    if g is not None:
+        ball.glue = None                   # anyone else's touch knocks it loose: a fair tackle
+    if m is not None:
+        if m["k"] == "power" and doll is not getattr(ball, "move_owner", None):
+            # POWER SHOT: straight through him - he's blasted back, the ball keeps its line, a bit slower
+            hit_ids = m.setdefault("thru", [])
+            if id(doll) in hit_ids:
+                return True                # (already through him: once each)
+            hit_ids.append(id(doll))
+            dirn = ball.vel.normalize() if ball.vel.length_squared() > 1.0 else Vector2(1, 0)
+            doll.vel += dirn * (900.0 + 300.0 * m["L"]) + Vector2(0, -380.0)
+            doll.av += 9.0 * (1 if dirn.x > 0 else -1)
+            ps_daze(doll, 0.35 * m["L"])
+            k = 1.0 / max(0.4, 1.0 - 0.35 / m["L"])       # (time stretched, so the path doesn't jump)
+            m["t"] *= k
+            m["T"] *= k
+            ps_mark("boom", ball.pos, T=0.45, col=(255, 150, 50), r=110)
+            sfx.play("bump", 0.8)
+            return True
+        ball.move = None                   # a body in the way: the path is over, a normal touch from here
     ball.pos += n * pen
     contact = centre + n * r
     if limb_hit is None:
@@ -2287,28 +2642,24 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     ctx = getattr(doll, "ctx", {})
     fired = []                                                    # (key, strength) that fire on this hit
 
-    def ps_try(key, cond):
+    def ps_try(key, cond):                                      # the touches: they fire on the spot
         if has_ps and cond and doll.ps_ready(key):              # off cooldown, and its moment
             fired.append(key)
             return doll.ps_fire(key)
         return 0.0
+
+    def ready(key, cond):                                       # the strikes: only fire if their path
+        return bool(has_ps and cond and doll.ps_ready(key))     # is clear (decided at the end)
     at_goal = n.dot((goal - ball.pos) / max(1.0, to_goal))     # 1 = struck straight at their goal
-    ps_mult = 1.0
-    L_head = ps_try("header", head_hit and drive > 120.0)
-    ps_mult += 1.10 * L_head                                   # PRECISION HEADER
-    L_pen = ps_try("penalty", sp_in < PS_DEAD and drive > 180.0 and at_goal > 0.25)
-    ps_mult += 1.20 * L_pen                                    # PENALTY EXPERT
-    L_cli = ps_try("clinical", to_goal < PS_NEAR_GOAL and drive > 450.0 and at_goal > 0.4)
-    ps_mult += 0.95 * L_cli                                    # CLINICAL FINISHER
-    L_pow = ps_try("power", their_half and run_up > PS_RUNUP and drive > 550.0 and at_goal > 0.3)
-    ps_mult += 1.25 * L_pow                                    # POWER SHOT
-    L_whip = ps_try("whipped", to_goal > PS_FAR and drive > 400.0 and n.y < -0.25 and n.x * facing > 0.0)
-    ps_mult += 0.75 * L_whip                                   # WHIPPED CROSS
-    L_bul = ps_try("bullet", to_goal > 650.0 and 400.0 < drive < 1800.0 and abs(n.y) < 0.35
-                   and n.x * facing > 0.3)
-    ps_mult += 0.90 * L_bul                                    # BULLET PASS
-    L_chip = ps_try("chip", their_half and 450.0 < to_goal < 1900.0 and drive > 280.0 and n.y < -0.40
-                    and ctx.get("opp_off_line"))
+    strikes = {k for k, ok in (
+        ("header", head_hit and drive > 120.0),                                        # PRECISION HEADER
+        ("penalty", sp_in < PS_DEAD and drive > 180.0 and at_goal > 0.25),             # PENALTY EXPERT
+        ("clinical", to_goal < PS_NEAR_GOAL and drive > 450.0 and at_goal > 0.4),      # CLINICAL FINISHER
+        ("power", their_half and run_up > PS_RUNUP and drive > 550.0 and at_goal > 0.3),   # POWER SHOT
+        ("whipped", to_goal > PS_FAR and drive > 400.0 and n.y < -0.25 and n.x * facing > 0.0),   # WHIPPED
+        ("bullet", to_goal > 650.0 and 400.0 < drive < 1800.0 and abs(n.y) < 0.35 and n.x * facing > 0.3),
+        ("chip", their_half and 450.0 < to_goal < 1900.0 and drive > 280.0 and n.y < -0.40
+         and ctx.get("opp_off_line"))) if ready(k, ok)}
 
     # momentum exchange: a fast player hits hard, a still one barely nudges it
     rest = BALL_PLAYER_RESTITUTION * (1.0 + _ab(doll, "rebound"))          # BLOCKER
@@ -2325,16 +2676,14 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     if carrier is not None and carrier is not doll and ball.carrier_t > 0.0 \
             and (ball.pos - carrier.pos).length() < CARRY_DIST:
         shield = SHIELD_MAX * (0.6 * getattr(carrier, "s_drib", 0.5) + 0.4 * getattr(carrier, "s_phys", 0.5))
-        if getattr(carrier, "ps_on", None) and carrier.ps_ready("bruiser"):
-            shield *= 1.0 + 2.6 * carrier.ps_fire("bruiser")          # BRUISER: a far stronger shield
+        if getattr(carrier, "ps_on", None) and carrier.ps("bruiser"):
+            shield *= 1.0 + 0.40 * carrier.ps_passive("bruiser")      # BRUISER: harder to knock off it
         shield *= 1.0 - 0.7 * getattr(doll, "s_def", 0.0)
-        L_ant = ps_try("anticipate", True)
-        if L_ant:                                                    # ANTICIPATE: a clean steal...
-            shield = 0.0
-            carrier.throw_timer = max(getattr(carrier, "throw_timer", 0.0), PS_STUN * L_ant)   # ...he's stunned
+        if has_ps and doll.ps("guardian"):
+            shield *= 1.0 - 0.30 * doll.ps_passive("guardian")        # GUARDIAN: a cleaner tackle
         j *= 1.0 - clamp(shield, 0.0, 0.8)
         stealing = True
-    j *= getattr(doll, "hit_mult", 1.0) * ability_hit(doll, ball, vn) * ps_mult
+    j *= getattr(doll, "hit_mult", 1.0) * ability_hit(doll, ball, vn)
     ball.vel += n * (j / BALL_MASS)
     # the ball goes where the body part is going: it takes on the sideways sweep of the
     # torso / arm / leg that touched it instead of only bouncing off along the normal
@@ -2350,10 +2699,9 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     s_pass = getattr(doll, "s_pass", 0.0)
     touch = (TOUCH_PASS * s_pass + getattr(doll, "control", 0.0) + _ab(doll, "control")
              + (0.3 * getattr(doll, "s_def", 0.0) if stealing else 0.0))       # FIRST TOUCH / SILKY
-    L_tiki = ps_try("tikitaka", soft > 0.35 and sp_in > 350.0 and doll.vel.length() > 150.0)
-    touch += 1.0 * L_tiki                                                       # TIKI TAKA: first time
-    L_trick = ps_try("trickster", soft > 0.4 and ctx.get("near_opp") and getattr(ball, "carrier", None) is doll)
-    touch += 0.30 * L_trick                                                     # TRICKSTER
+    L_tiki = doll.ps_passive("tikitaka") if has_ps and doll.ps("tikitaka") and soft > 0.35 \
+        and sp_in > 350.0 and doll.vel.length() > 150.0 else 0.0
+    touch += 0.5 * L_tiki                                                       # TIKI TAKA: a cleaner first touch
     if "anticipate" in fired:
         touch = max(touch, 0.6 + 0.2 * doll.ps("anticipate"))                   # the steal goes your way
         soft = max(soft, 0.8)
@@ -2370,12 +2718,6 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     heavy = HEAVY_TOUCH * (1.0 - s_pass) * soft
     if heavy > 0.0:
         ball.vel += n * max(abs(vn), 200.0) * heavy                          # a heavy touch
-    if L_tiki and doll.vel.length() > 1.0:                                    # ...it's yours, at your pace
-        ball.vel = doll.vel.normalize() * max(doll.vel.length() * (1.0 + 0.55 * L_tiki), 420.0)
-        ball.zip_t = max(ball.zip_t, 0.8)
-        doll.throw_timer = 0.0                                                # ...and you go again at once
-    if L_trick and doll.vel.length() > 1.0:                                   # TRICKSTER: stays at your feet
-        ball.vel = ball.vel * (1.0 - 0.25 * L_trick) + doll.vel * (0.25 * L_trick)
     if soft > 0.3:
         ball.carrier, ball.carrier_t = doll, CARRY_TIME                       # you're carrying it
     # DEFENDING: a shot coming at your own goal loses its sting on you. SAFE HANDS is
@@ -2390,11 +2732,8 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
         # ...and the block goes where the defender is aiming (his last throw)
         aim = getattr(doll, "aim_dir", None)
         k = clamp(BLOCK_AIM * s_def, 0.0, 0.85)
-        L_def = ps_try("deflector", getattr(doll, "is_gk", False))
-        if L_def:                                                    # DEFLECTOR: killed, up and wide
-            ball.vel *= clamp(1.0 - 0.75 * L_def, 0.15, 1.0)
-            aim = Vector2(0.55 * facing, -0.85).normalize()
-            k = clamp(0.80 * L_def, k, 0.95)
+        if ready("deflector", getattr(doll, "is_gk", False)):
+            strikes.add("deflector")                                 # DEFLECTOR: the parry (at the end)
         sp = ball.vel.length()
         if aim is not None and k > 0.0 and sp > 1.0:
             new = ball.vel / sp * (1.0 - k) + aim * k
@@ -2407,19 +2746,6 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
                    GROUND_Y - GOAL_HEIGHT * 0.5)
     want = goal - ball.pos
     ball.bend, ball.bend_t = 0.0, 0.0
-    pull = 0.0
-    if L_head:
-        if their_half:
-            pull += 0.60 * L_head                                 # PRECISION HEADER: on target
-        else:                                                     # ...or cleared up and away
-            away = Vector2(0.6 * facing, -0.8).normalize()
-            ball.vel = (ball.vel.normalize() * 0.3 + away * 0.7).normalize() * max(speed, 1.0)
-    pull += 0.55 * L_pen + 0.60 * L_cli                           # PENALTY EXPERT / CLINICAL
-    if pull > 0.0 and speed > 300.0 and want.length_squared() > 1.0 and ball.vel.dot(want) > 0.0:
-        cur = math.atan2(ball.vel.y, ball.vel.x)
-        diff = (math.atan2(want.y, want.x) - cur + math.pi) % math.tau - math.pi
-        turn = clamp(diff, -pull, pull)
-        ball.vel = Vector2(math.cos(cur + turn), math.sin(cur + turn)) * speed
     if speed > 300.0 and getattr(doll, "aim_bonus", 0.0) > 0.0 and want.length_squared() > 1.0 \
             and ball.vel.dot(want) > 0.0:
         cur = math.atan2(ball.vel.y, ball.vel.x)
@@ -2429,34 +2755,14 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     strength = abs(vn)
     if n.y > -0.35 and strength > 500.0:
         lift = (0.12 + _ab(doll, "lift") * 0.45) * clamp(1.0 - _ab(doll, "flat"), 0.4, 1.0)
-        if L_bul:
-            lift *= 0.10                                             # BULLET PASS: stays flat
-        if L_pow:
-            lift *= 0.20                                             # POWER SHOT: low and driven
         ball.vel.y -= strength * lift                                # LOB lifts, LOW DRIVEN flattens
-    if L_bul:
-        ball.vel.y = max(ball.vel.y, -abs(ball.vel.x) * 0.08)
-        ball.zip_t = max(ball.zip_t, 2.6)                            # ...and keeps its pace
-    if L_pow:
-        ball.zip_t = max(ball.zip_t, 2.2)
-    if L_chip:                                                       # CHIP SHOT: a real lob that drops in
-        aim_pt = Vector2(goal.x, GROUND_Y - GOAL_HEIGHT * 0.42)
-        dx, dy = aim_pt.x - ball.pos.x, aim_pt.y - ball.pos.y
-        T = clamp(abs(dx) / 760.0, 0.75, 1.7)                      # flight time (ball time)
-        vx = dx / T * 1.04                                           # (a touch more for the air drag)
-        vy = (dy - 0.5 * BALL_GRAVITY * T * T) / T
-        miss = (1.5 - L_chip) * random.uniform(-0.05, 0.05)        # silver: within a few %, gold: perfect
-        ball.vel = Vector2(vx * (1.0 + miss), vy)
-        if ball.vel.length() > BALL_SPEED_CAP:
-            ball.vel.scale_to_length(BALL_SPEED_CAP)
-        ball.extra_g_t = 0.0
-    elif strength < 420.0 and _ab(doll, "lift") > 0.0:
+    if strength < 420.0 and _ab(doll, "lift") > 0.0:
         ball.vel.y -= strength * _ab(doll, "lift") * 1.1             # PLAY MAKER pops it up for himself
     dspin = rel.dot(perp(n)) * 0.035 * (1.0 + _ab(doll, "curve"))           # SPIN
     ball.spin += dspin
     # 1 Nov: and TOPSPIN - the ball rolls forward off every hit, more the harder it's struck, and
     # dips in flight (Ball.step). A chip has none, so the lob still drops where it was aimed.
-    if not L_chip and abs(ball.vel.x) > 1.0:
+    if abs(ball.vel.x) > 1.0:
         top = math.degrees(min(abs(ball.vel.x), BALL_SPEED_CAP) / ball.radius) * BALL_TOPSPIN   # (a pop straight up barely turns)
         ball.spin = math.copysign(max(abs(ball.spin), top), ball.vel.x) if ball.spin * ball.vel.x >= 0.0 \
             else math.copysign(top, ball.vel.x)
@@ -2466,19 +2772,24 @@ def ball_vs_player(ball, doll, sfx, particles, on_hit):
     fin_spin = clamp((abs(dspin) - b0 * 0.6) / (b1 - b0 * 0.6), 0.0, 1.0)    # FINESSE reads less spin
     sp_out = ball.vel.length()
     heading = ball.vel.dot(want) / max(1.0, sp_out * want.length()) if want.length_squared() > 1.0 else 0.0
-    L_fin = ps_try("finesse", 420.0 < to_goal < 1700.0 and fin_spin >= 0.15
-                   and sp_out > 350.0 and heading > 0.45)
-    if L_fin:                                                        # FINESSE EXPERT: the curler
-        corner = Vector2(goal.x, GROUND_Y - GOAL_HEIGHT * 0.80)      # into the top corner
-        ball.bend = min(BEND_MAX + 0.55 * L_fin, 0.45 + 0.26 * L_fin + getattr(doll, "s_shot", 0.5) * BEND_SHOT * 0.5)
-        ball.bend_t, ball.bend_goal = BEND_TIME * 1.15, corner
-        ball.vel *= 1.0 + 0.65 * L_fin
-    elif spin_k > 0.0 and sp_out > 300.0 and want.length_squared() > 1.0 and ball.vel.dot(want) > 0.0:
+    if ready("finesse", 420.0 < to_goal < 1700.0 and fin_spin >= 0.15 and sp_out > 350.0 and heading > 0.45):
+        strikes.add("finesse")                                       # FINESSE EXPERT (at the end)
+    if spin_k > 0.0 and sp_out > 300.0 and want.length_squared() > 1.0 and ball.vel.dot(want) > 0.0:
         ball.bend = min(BEND_MAX, getattr(doll, "s_shot", 0.5) * BEND_SHOT + _ab(doll, "aim")) * spin_k
         ball.bend_t, ball.bend_goal = BEND_TIME, goal
-    if L_whip and ball.bend <= 0.0:                                  # WHIPPED CROSS: curls into the box
-        ball.bend, ball.bend_t = 0.75 * L_whip, BEND_TIME * 1.5
-        ball.bend_goal = Vector2(goal.x - facing * 320.0, GROUND_Y - 260.0)
+    # the strike PlayStyles: the first whose moment this is, and whose path is clear, takes the ball
+    for key in ("deflector", "header", "chip", "finesse", "power", "clinical", "penalty", "whipped", "bullet"):
+        if key in strikes and ps_shot(ball, doll, key, doll.ps_ready(key)):
+            doll.ps_fire(key)
+            fired.append(key)
+            if key == "deflector":
+                ps_mark("shield", contact, T=0.5, col=(200, 230, 255), r=120)
+            break
+    if L_tiki:                                                      # ...and the next throw comes round sooner
+        doll.throw_timer *= clamp(1.0 - 0.30 * L_tiki, 0.2, 1.0)
+    if has_ps and doll.ps("anticipate"):
+        doll.read_t = 1.5                                           # ANTICIPATE: quicker for a moment after a touch
+    ball.last_doll = doll
     ball.impact(n, strength)
     if limb_hit is None:
         doll.apply_impulse(contact, -n * j)
@@ -2522,23 +2833,13 @@ def player_vs_player(a, b, sfx, ball=None):
         base = p.duel01() if hasattr(p, "duel01") else 0.45
         k = (0.15 + 1.25 * base) * rating_k(p, RATING_DUEL) \
             * (1.0 + DUEL_SPEED * clamp(p.vel.length() / 2000.0, 0.0, 1.0))
-        if abs(vn) > 400.0 and getattr(p, "ps_on", None) and p.ps_ready("bruiser"):
-            k *= 1.0 + 3.0 * p.ps_fire("bruiser")                    # BRUISER: wins it by a mile
+        if getattr(p, "ps_on", None):
+            if abs(vn) > 400.0 and p.ps("bruiser"):
+                k *= 1.0 + 0.35 * p.ps_passive("bruiser")            # BRUISER: stronger in a hard duel
+            if p.ctx.get("own_half") and p.ps("guardian"):
+                k *= 1.0 + 0.25 * p.ps_passive("guardian")           # GUARDIAN: stronger in your own half
         return k
     sa, sb = duel(a), duel(b)
-    # GUARDIAN: barge into the player carrying the ball and you win it
-    if ball is not None and abs(vn) > 250.0:
-        for tackler, holder in ((a, b), (b, a)):
-            if getattr(ball, "carrier", None) is holder and ball.carrier_t > 0.0 \
-                    and (ball.pos - holder.pos).length() < CARRY_DIST \
-                    and getattr(tackler, "ps_on", None) and tackler.ps_ready("guardian"):
-                L = tackler.ps_fire("guardian")
-                holder.throw_timer = max(getattr(holder, "throw_timer", 0.0), PS_STUN * L)   # he's stunned
-                pop = tackler.pos - ball.pos
-                if pop.length_squared() > 1.0:
-                    ball.vel = pop.normalize() * (380.0 + 240.0 * L) + tackler.vel * 0.3 + Vector2(0, -200.0)
-                ball.carrier, ball.carrier_t = tackler, CARRY_TIME
-                break
     # TANK throws people further, ANCHOR keeps you standing
     ka = (1.0 + _ab(b, "mass")) * clamp(1.0 - _ab(a, "anchor"), 0.4, 1.0)
     kb = (1.0 + _ab(a, "mass")) * clamp(1.0 - _ab(b, "anchor"), 0.4, 1.0)
@@ -2683,9 +2984,11 @@ PROFILE = 23                   # 29 Oct: your profile and trophy cabinet
 GAUNTLET = 24                  # 30 Oct: ten opponents in a row, THE MACHINE at the top
 QUESTS = 25                    # 1 Nov: daily + weekly quests
 ARCHIVE = 26                   # 1 Nov: the Signature Archive
+PASS = 27                      # 6 Nov: the Season 1 pass
+LOCKER = 28                    # 6 Nov: profile pictures + ball skins
 MENU_STATES = (SELECT, TITLE, CLUB, TABLE, PACKS, PACK_OPEN, MYCLUB, LINEUP, PACK_VIEW, EVENT,
                STORE, STARS, EXCHANGE, FREE_SELECT, PACK_MULTI, ROOKIE_PICK, MAIL, ESSENCE, PROFILE, GAUNTLET,
-               QUESTS, ARCHIVE)
+               QUESTS, ARCHIVE, PASS, LOCKER)
 # the 12 teams, in select-screen order. Each one is <CODE>.png sitting in the
 # same folder as this script (ARG.png, BRA.png, ...).
 TEAMS = ["ARG", "BRA", "CRO", "ENG", "FRA", "MOR",
@@ -3064,6 +3367,9 @@ CARD_DB = [
     # 1 Nov: the second Game Box's card - 153 shows as 128
     ('SIG_ARG_kempes', 'Mario Kempes', 'sig', 'ARG', 0, 'good', 153, 'ST', 10, None, 153, 140, 'signature',
      'El Matador. Long hair flying, through the middle and past the keeper - the final was his.'),
+    # 6 Nov: Season 1's own card - only at tier 50 of the premium pass
+    ('S1_ARG_messi', 'Messi', 'sig', 'ARG', 0, 'good', 158, 'RW', 10, None, 158, 138, 'season1',
+     'Season 1. The Barcelona years: hair flying, past four men and a fist in the air before the net stops moving.'),
 ]
 CLUB_PACKS = {1: ('ARS', 'AST', 'BOU', 'BRE', 'BRI', 'CHE', 'CRY'), 2: ('EVE', 'FUL', 'LIV', 'MCI', 'MUN', 'NEW', 'NOT'), 3: ('TOT', 'WES', 'WOL', 'SUN', 'INT', 'ALN', 'BAR')}
 
@@ -3136,13 +3442,72 @@ QUEST_WEEKLY = (
     ("w_ps", "ps", 25, "FIRE 25 OF YOUR PLAYSTYLES", {"coins": 700, "tp": 60}),
     ("w_clean", "clean", 5, "KEEP 5 CLEAN SHEETS", {"coins": 700, "tp": 50}),
 )
+# 6 Nov: gems are rare - every source is capped. Each weekly pays 25 (3 a week), the daily chest
+# drops 10 one day in twenty, the free pass track has 200, and codes are Hubi's to hand out.
+QUEST_WEEKLY_GEMS = 25
+CHEST_GEM_CHANCE = 0.05
+CHEST_GEMS = 10
+QUEST_WEEKLY = tuple(q[:4] + (dict(q[4], gems=QUEST_WEEKLY_GEMS),) for q in QUEST_WEEKLY)
 QUEST_DAILY_N = 3
 QUEST_WEEKLY_N = 3
 QUEST_CHEST = {"coins": 150, "ess": 10}        # all three dailies claimed
 QUEST_DEF = {q[0]: q for q in QUEST_DAILY + QUEST_WEEKLY}
 QUEST_REWARD_LOOK = (("coins", "COINS", (255, 210, 90)), ("tp", "TRAINING", (110, 220, 255)),
                      ("pz", "PUZZLE", (150, 255, 170)), ("ess", "ESSENCE", (200, 140, 255)),
-                     ("pack", "FREE PACK", (255, 130, 140)))
+                     ("pack", "FREE PACK", (255, 130, 140)), ("gems", "GEMS", (120, 240, 215)))
+
+
+# ---- SEASON 1 (6 Nov) ----------------------------------------------------------------------------
+# Hubi: "ADD A BATTLE PASS make it season 1 and add profile pictures". Fifty tiers over six weeks, a
+# free track and a premium track. Premium is bought with GEMS, a new currency: the browser game shows
+# a rewarded ad for them (the site's play page runs Google's H5 Games Ads), a few come on the free track,
+# and the admin can mail them. Matches, quests and the day's first win fill the pass.
+SEASON = {"id": "S1", "name": "SEASON 1", "title": "KICK OFF", "start": (2026, 11, 6), "end": (2026, 12, 18)}
+PASS_TIERS = 50
+PASS_TIER_XP = 250             # tier 1 is open from the start, so 49 x 250 = 12,250 pass XP to the top
+PASS_PREMIUM_GEMS = 600
+PASS_TIER_GEMS = 120           # buy the next tier outright
+ADS_ON = False                 # 6 Nov: no ads for now - the pass shows CODES in that slot
+GEMS_PER_AD = 30
+ADS_PER_DAY = 10
+AD_WAIT = 150.0                # seconds before a WATCH AD that never answers gives up
+PASS_XP_QUEST = {"daily": 100, "weekly": 300}
+PASS_XP_FIRST_WIN = 150        # the first win of each day
+S1_CARD = "S1_ARG_messi"
+S1_AURA = ((60, 230, 200), (230, 255, 248))
+# profile pictures: (key, name). make_cosmetics.py draws them; "owner" ones only unlock for the admin
+PFPS = (("doll", "RAGDOLL"), ("ball", "CLASSIC BALL"), ("whistle", "THE WHISTLE"), ("s1", "SEASON 1"),
+        ("boot", "GOLDEN BOOT"), ("glove", "SAFE HANDS"), ("net", "TOP BINS"), ("flame", "ON FIRE"),
+        ("crown", "THE CROWN"), ("bolt", "LIGHTNING"), ("star", "SUPERSTAR"), ("cup", "CHAMPION"),
+        ("s1gold", "SEASON 1 GOLD"), ("owner", "THE OWNER"), ("owner_live", "THE OWNER - LIVE"))
+PFP_NAME = dict(PFPS)
+PFP_START = ("doll", "ball")
+PFP_OWNER = ("owner", "owner_live")
+PFP_LIVE = {"owner_live": 12}  # animated: frames side by side in the picture
+BALL_SKINS = (("classic", "CLASSIC"), ("ember", "EMBER"), ("night", "NIGHT NEON"), ("frost", "FROST"),
+              ("gold", "GOLDEN"), ("galaxy", "GALAXY"), ("s1", "SEASON 1"))
+BALL_SKIN_NAME = dict(BALL_SKINS)
+BALL_SKIN = "classic"          # the one the match ball wears (set from the save)
+
+
+def _pass_rewards():
+    """{tier: (free, premium)} - each a reward dict: coins / sp / gems / pack / pfp / ball / card."""
+    free_special = {10: {"gems": 50}, 20: {"pfp": "whistle"}, 25: {"gems": 50}, 30: {"gems": 50},
+                    40: {"ball": "ember"}, 45: {"gems": 50}, 50: {"pfp": "s1"}}
+    prem_special = {2: {"pfp": "boot"}, 5: {"ball": "night"}, 6: {"pfp": "glove"}, 10: {"gems": 100},
+                    12: {"pfp": "net"}, 15: {"ball": "frost"}, 16: {"pfp": "flame"}, 20: {"pack": 2},
+                    24: {"pfp": "crown"}, 25: {"ball": "gold"}, 30: {"gems": 100}, 32: {"pfp": "bolt"},
+                    35: {"ball": "galaxy"}, 38: {"pfp": "star"}, 40: {"pack": 2}, 44: {"pfp": "cup"},
+                    45: {"ball": "s1"}, 49: {"pfp": "s1gold"}, 50: {"card": S1_CARD}}
+    out = {}
+    for t in range(1, PASS_TIERS + 1):
+        free = {"pack": 1} if t % 5 == 0 else ({"coins": 150} if t % 2 else {"sp": 1000})
+        prem = {"pack": 1} if t % 5 == 3 else ({"coins": 400} if t % 2 else {"sp": 3000})
+        out[t] = (free_special.get(t, free), prem_special.get(t, prem))
+    return out
+
+
+PASS_REWARDS = _pass_rewards()
 
 # ---- Star Signing (STORE) -------------------------------------------------------------------------
 # Elite cards, bought once each with Star Points. Star Points come from exchanging players
@@ -3318,6 +3683,7 @@ ABILITY_SIGNATURE = {
     "SIG_JPN_aoyagi": ("sniper", "first_touch", "rocket", "quick"),
     "SIG_BRA_neymar": ("spin", "silky", "escape", "first_touch"),
     "SIG_ARG_kempes": ("poacher", "rocket", "volley", "clutch"),
+    "S1_ARG_messi": ("silky", "sniper", "first_touch", "spin"),
     "WC_ARG_messi": ("silky", "sniper", "first_touch", "spin"),
     "INT_messi": ("silky", "sniper", "first_touch", "spin"),
     "WG_messi": ("silky", "spin", "first_touch", "sniper"),
@@ -3422,42 +3788,46 @@ def ovr(raw):
 # and (3) an effect big enough to SEE - most change what the ball or the other player does, not a
 # few percent of power. Level 2 (gold) is half again as strong.
 PLAYSTYLES = (
+    # 6 Nov: the strikes put the ball on a path you can SEE (PS MOVES) - Finesse curls in, Power Shot
+    # is a fireball. Everything else is PASSIVE (Hubi: "playstyles are passive abilities"): it only
+    # changes how your own throws, touches and duels behave in its moment - a bit quicker, stronger,
+    # cleaner - and never does anything for you.
     ("accelerator", "ACCELERATOR", "att", {},
-     "Sprint at a loose ball well away from you: a much bigger launch and a higher top speed."),
+     "Sprint at a loose ball well away from you: you streak off, speed lines behind you, far faster."),
     ("header", "PRECISION HEADER", "def", {},
-     "The ball hits your head: a powerful header on target in their half, a huge clearance in yours."),
+     "Head it in their half: a white laser of a header into the corner. In yours: a towering clearance."),
     ("bullet", "BULLET PASS", "mid", {},
-     "A firm, flat hit away from their box: a fast laser that stays on the floor and keeps its pace."),
+     "A firm, flat hit far from goal: a cyan laser - dead flat, it doesn't drop or slow down."),
     ("chip", "CHIP SHOT", "att", {},
-     "Hit under the ball in their half while their player is off his line: it lobs him and drops in."),
+     "Hit under the ball while their man is off his line: it soars up into the sky and drops in under the bar."),
     ("guardian", "GUARDIAN", "def", {},
-     "Barge into the player carrying the ball: you win it, and he is left stunned for a moment."),
+     "Stronger in body duels in your own half, and your tackles cut through his shielding more cleanly."),
     ("bruiser", "BRUISER", "def", {},
-     "A hard body duel: you win it by a mile - he flies off you - and your shield is far stronger."),
+     "Stronger in hard body duels, and harder to knock off the ball when you're carrying it."),
     ("penalty", "PENALTY EXPERT", "att", {},
-     "A dead ball (kick-offs, a ball at rest): a big, steady strike pulled on target."),
+     "Strike a stopped ball at goal: a knuckleball - it wobbles all the way into the far corner."),
     ("finesse", "FINESSE EXPERT", "att", {},
-     "A curled shot from range (spin on it, aimed at goal): it bends hard into the top corner."),
+     "A spun shot from range: it goes out low and CURLS up into the top corner."),
     ("relentless", "RELENTLESS", "mid", {},
-     "Behind, or the last seconds: harder throws and you throw again far sooner (and halves cost less stamina)."),
+     "Behind, or the last seconds: your throws are a bit harder and come round sooner (and halves cost less stamina)."),
     ("rapid", "RAPID", "att", {},
-     "Throw forward while carrying the ball: you burst off and knock it well on ahead."),
+     "Throw forward while carrying it: a quicker launch and top speed, and the ball stays yours a bit longer."),
     ("anticipate", "ANTICIPATE", "def", {},
-     "Touch a ball the other player is carrying: a clean steal, it goes your way, he is left stunned."),
+     "Quicker off the mark in your own half, and quicker again for a moment after you touch the ball."),
     ("rushout", "RUSH OUT", "gk", {},
-     "Keeper: throw at the ball while it's in your box - a far bigger launch, and again at once."),
+     "Keeper: throwing at the ball in your box, you come off your line quicker and are ready again sooner."),
     ("clinical", "CLINICAL FINISHER", "att", {},
-     "A shot close to their goal: pulled hard on target and struck harder."),
+     "A shot near their goal: a crosshair locks on to the corner furthest from him, and a red laser goes in."),
     ("deflector", "DEFLECTOR", "gk", {},
-     "Keeper: a hard shot blocked in your half is killed and pushed up and wide, out of danger."),
+     "Keeper: block a hard shot - a parry, the ball flies up and away to land far upfield."),
     ("power", "POWER SHOT", "att", {},
-     "A full-speed run-up shot in their half: a huge, low, driven strike."),
+     "A full-speed hit in their half: a fireball on a dead straight line - straight THROUGH anyone in the way."),
     ("whipped", "WHIPPED CROSS", "mid", {},
-     "A rising hit from far out: faster, and it curls down into their box."),
+     "A rising hit from far out: the dipper - up over everyone, then diving down into the goal mouth."),
     ("tikitaka", "TIKI TAKA", "mid", {},
-     "Take a moving ball first time with a soft touch: it's yours at your speed, and you throw again at once."),
+     "Take a moving ball first time, softly: a cleaner first touch, and your next throw comes round sooner."),
     ("trickster", "TRICKSTER", "mid", {},
-     "Turn with the ball while he's close: a sharp turn straight through him, and he's left frozen."),
+     "Carrying it with him close: sharper turns (less of your old run carried over) and ready to throw again sooner."),
 )
 # seconds before a PlayStyle can fire again
 # (world seconds; 30 Oct: x0.7 with the slower WORLD_TIME, so in real time they come round as before)
@@ -3475,13 +3845,13 @@ PS_HOW = {"accelerator": "THROW AT A LOOSE BALL FAR AWAY",
           "header": "GET YOUR HEAD ON THE BALL",
           "bullet": "HIT IT FLAT AND FIRM, FAR FROM GOAL",
           "chip": "LOB IT WHEN THEIR MAN IS OFF HIS LINE",
-          "guardian": "BARGE INTO HIM WHEN HE HAS THE BALL",
-          "bruiser": "CRASH INTO HIM AT SPEED",
+          "guardian": "DUELS IN YOUR HALF, TACKLING HIS BALL",
+          "bruiser": "HARD DUELS, AND SHIELDING THE BALL",
           "penalty": "STRIKE A STOPPED BALL AT GOAL",
           "finesse": "SPIN A SHOT AT GOAL FROM RANGE",
-          "relentless": "ON WHEN BEHIND OR IN THE LAST 10s",
+          "relentless": "THROW WHEN BEHIND OR IN THE LAST 10s",
           "rapid": "THROW FORWARD WHILE CARRYING IT",
-          "anticipate": "TOUCH THE BALL HE IS CARRYING",
+          "anticipate": "ON IN YOUR HALF, AND AFTER A TOUCH",
           "rushout": "KEEPER: THROW AT IT IN YOUR BOX",
           "clinical": "SHOOT FROM CLOSE TO THEIR GOAL",
           "deflector": "KEEPER: BLOCK A HARD SHOT",
@@ -3495,15 +3865,12 @@ PS_BANNER = 1.3                 # seconds the big name stays on screen
 PS_BANNER_SHOW = False          # 31 Oct, Hubi: no text in the middle of the screen...
 PS_EXTRAS = False               # ...and "the indicator was just the icon above": no ring, no hit-stop,
                                 # no sound either - a PlayStyle firing shows as its icon over the player
-PS_DID = {"accelerator": "BIGGER LAUNCH, HIGHER TOP SPEED", "header": "A POWER HEADER",
-          "bullet": "A FLAT LASER THAT KEEPS ITS PACE", "chip": "THE LOB DROPS IN", "guardian": "BALL WON - HE'S STUNNED",
-          "bruiser": "WON THE DUEL BY A MILE", "penalty": "A BIG STRIKE, PULLED ON TARGET",
-          "finesse": "CURLING INTO THE TOP CORNER", "relentless": "HARDER THROWS, AND AGAIN SOONER",
-          "rapid": "BURSTS AWAY WITH THE BALL", "anticipate": "A CLEAN STEAL - HE'S STUNNED",
-          "rushout": "THE KEEPER FLIES OUT", "clinical": "PULLED ON TARGET AND STRUCK HARDER",
-          "deflector": "KILLED AND PUSHED UP AND WIDE", "power": "A HUGE, LOW, DRIVEN STRIKE",
-          "whipped": "CURLING DOWN INTO THE BOX", "tikitaka": "FIRST TIME - AND GO AGAIN AT ONCE",
-          "trickster": "STRAIGHT THROUGH HIM - HE'S FROZEN"}
+PS_DID = {"accelerator": "STREAKS OFF", "header": "A LASER HEADER", "bullet": "A FLAT LASER",
+          "chip": "UP INTO THE SKY - AND IN", "guardian": "STRONGER IN YOUR HALF", "bruiser": "WON THE DUEL",
+          "penalty": "THE KNUCKLEBALL", "finesse": "CURLED INTO THE TOP CORNER", "relentless": "HARDER, SOONER",
+          "rapid": "QUICKER ON THE BALL", "anticipate": "QUICKER OFF THE MARK", "rushout": "OFF HIS LINE FAST",
+          "clinical": "LOCKED ON", "deflector": "PARRIED AWAY", "power": "A FIREBALL",
+          "whipped": "THE DIPPER", "tikitaka": "CLEAN FIRST TOUCH", "trickster": "A SHARP TURN"}
 PS_STUN = 1.00                  # (was 0.40, 0.60)                  # GUARDIAN / ANTICIPATE / TRICKSTER: how long the beaten player can't throw
 PS_BY_KEY = {p[0]: {"key": p[0], "name": p[1], "group": p[2], "fx": p[3], "text": p[4]}
              for p in PLAYSTYLES}
@@ -3529,6 +3896,7 @@ PS_SIGNATURE = {
     "SIG_JPN_aoyagi": ("clinical", "finesse"),
     "SIG_BRA_neymar": ("trickster", "rapid"),
     "SIG_ARG_kempes": ("clinical", "power"),
+    "S1_ARG_messi": ("finesse", "trickster"),
     "WC_ARG_messi": ("finesse", "trickster"), "INT_messi": ("finesse", "trickster"),
     "WC_POR_ronaldo": ("power", "header"), "ALN_ronaldo": ("power", "header"),
     "WC_FRA_mbappe": ("accelerator", "rapid"), "STAR_mbappe": ("accelerator", "rapid"),
@@ -4055,7 +4423,7 @@ ROOKIE_MINT = (186, 255, 214)
 # Star Points for exchanging one copy of a card, by OVR (straight lines between the points)
 SP_CURVE = ((46, 150), (55, 200), (72, 600), (81, 1250), (90, 2500), (99, 4500), (107, 7500),
             (125, 20000), (160, 50000))
-NO_EXCHANGE = ("SIG_JPN_aoyagi", "SIG_BRA_neymar", "SIG_ARG_kempes")    # Ren Aoyagi + Neymar Jr (Star Signings can't be sold either)
+NO_EXCHANGE = ("SIG_JPN_aoyagi", "SIG_BRA_neymar", "SIG_ARG_kempes", "S1_ARG_messi")    # Ren Aoyagi + Neymar Jr (Star Signings can't be sold either)
 STARS_PER_PAGE = 21                                    # (the old 7 x 3 legend shop)
 SIGN_MARKUP = 9                # 1 Nov, the Star Signings market: signing costs 9x what he releases for
 SIGN_MIN = 1500                # ...and never less than this
@@ -5930,7 +6298,7 @@ class Game:
         self.event_popup = None
         self.extra_flags = {code: load_pixel("flag_%s" % code, (240, 160), fit=True, quiet=True)
                             for code in EXTRA_FLAGS}
-        self.star_bg = load_pixel("star_bg", (WIDTH, HEIGHT), quiet=True)
+        self.star_bg = opaque(load_pixel("star_bg", (WIDTH, HEIGHT), quiet=True))   # (opaque: a straight copy)
         self.star_pack = load_pixel("pack_star", (330, 462), fit=True, quiet=True)
         self.wg_pack = load_pixel("pack_wg", (330, 462), fit=True, quiet=True)
         self.essence_bg = opaque(load_pixel("essence_bg", (WIDTH, HEIGHT), quiet=True))
@@ -6180,6 +6548,10 @@ class Game:
         self.setup_kickoff(None)
 
     def setup_kickoff(self, conceded_by):
+        PS_FX.clear()
+        self._ps_trail = []
+        for d in (self.player, self.cpu):
+            d.streak_t = d.daze_t = d.read_t = 0.0
         self.player.reset_to(WIDTH * 0.5 - 430)
         self.cpu.reset_to(WIDTH * 0.5 + 430)
         if self.mode == "practice":
@@ -6284,6 +6656,8 @@ class Game:
                             self.open_quests()
                         elif self.pack_reveal and self.pack_reveal.get("back") == "archive":
                             self.open_archive()
+                        elif self.pack_reveal and self.pack_reveal.get("back") == "pass":
+                            self.open_pass()
                         else:
                             self.open_packs(self.pack_reveal["pack"] if self.pack_reveal else None)
                     elif self.state in (STARS, EXCHANGE):
@@ -6316,8 +6690,10 @@ class Game:
                             self.state = PACKS
                     elif self.state == PACKS:
                         self.open_store()
-                    elif self.state in (MAIL, PROFILE, QUESTS):
+                    elif self.state in (MAIL, PROFILE, QUESTS, PASS):
                         self.state = TITLE
+                    elif self.state == LOCKER:
+                        self.locker_back()
                     elif self.state == GAUNTLET:
                         if getattr(self, "gt_reveal", None) is not None:
                             self.gt_reveal = None       # out of THE MACHINE's entrance, back to the stairs
@@ -6388,6 +6764,9 @@ class Game:
                     continue
                 if self.state == PACK_OPEN and self.tut is None and self.pack_swipe_event(event):
                     continue                       # swipe to tear the pack
+                if self.state == PASS and event.type == getattr(pygame, "MOUSEWHEEL", -1):
+                    self.pass_slide(-getattr(event, "y", 0) - getattr(event, "x", 0))
+                    continue
                 if self.state == PACK_VIEW and event.type == getattr(pygame, "MOUSEWHEEL", -1):
                     self.scroll_view(-getattr(event, "y", 0) * 220)
                     continue
@@ -6417,7 +6796,8 @@ class Game:
                      FREE_SELECT: self.free_click, PACK_MULTI: self.multi_click,
                      ROOKIE_PICK: self.rookie_click, MAIL: self.mail_click,
                      ESSENCE: self.essence_click, PROFILE: self.profile_click,
-                     GAUNTLET: self.gt_click, QUESTS: self.quests_click, ARCHIVE: self.archive_click}[self.state](pos)
+                     GAUNTLET: self.gt_click, QUESTS: self.quests_click, ARCHIVE: self.archive_click,
+                     PASS: self.pass_click, LOCKER: self.locker_click}[self.state](pos)
                     if self.quit_requested:
                         return False
                 continue
@@ -6617,7 +6997,7 @@ class Game:
         finally:
             self.state = was
 
-    def warm_stars_cards(self, n=None, pages=2):
+    def warm_stars_cards(self, n=None, pages=3):
         """Star Signings' first pages of cards, drawn once offscreen (n at a time, or all).
         Its first open used to build ~140 card pictures in the one frame you walked in.
         Returns True when they're all done."""
@@ -6636,6 +7016,28 @@ class Game:
             for name in ["pk_globe", "pk_close"] + ["pk_%s_%s" % (k, t) for k in ("burst", "stadium")
                                                  for t in "ABLC"]:
                 self.wk_img(name)
+
+    def warm_menus(self):
+        """The home screen and the tabs people open most, drawn once offscreen (their glass panels,
+        text and pictures then sit in the caches). Their first visit used to cost 20-35 million
+        pixels of building in one frame - the hitch on opening a tab."""
+        jobs = ((None, self.draw_title), (self.open_profile, self.draw_profile),
+                (self.open_quests, self.draw_quests), (self.open_archive, self.draw_archive),
+                (self.open_event, self.draw_event), (self.open_essence, self.draw_essence_shop),
+                (self.open_exchange, self.draw_exchange), (self.open_freeplay, self.draw_freeplay),
+                (lambda: setattr(self, "state", MYCLUB), self.draw_myclub))
+        for opener, paint in jobs:
+            was = (self.state, getattr(self, "menu_page", "main"))
+            try:
+                if opener is not None:
+                    opener()
+                paint(self.world)
+            except Exception:
+                pass                                   # warming is a nicety, never a reason to crash
+            finally:
+                self.state, self.menu_page = was
+        self.toasts = []
+        self._still_page = None
 
     def warm_flags(self):
         """Every nation's flag cloth (the still frame the browser shows), built once."""
@@ -6708,7 +7110,7 @@ class Game:
             return
         if self.state in (TITLE, TABLE, PACKS, PACK_OPEN, MYCLUB, LINEUP, PACK_VIEW,
                           STORE, STARS, EXCHANGE, FREE_SELECT, ROOKIE_PICK, ESSENCE, PROFILE, GAUNTLET, QUESTS,
-                          ARCHIVE):
+                          ARCHIVE, PASS, LOCKER):
             return
         if self.paused:
             return
@@ -6785,6 +7187,9 @@ class Game:
         # each one moves the world on by only WORLD_TIME of a step - so the slower world still
         # moves every frame (taking whole steps less often stutters)
         self.watch_ps(dt)                                  # PlayStyles: banner, hit-stop, flash
+        for fx in PS_FX:                                   # (the marks the PlayStyles leave)
+            fx["t"] += dt
+        PS_FX[:] = [fx for fx in PS_FX if fx["t"] < fx["T"]]
         self.accumulator += dt * self.slowmo * (PS_HITSTOP_K if getattr(self, "ps_hitstop", 0.0) > 0.0 else 1.0)
         steps = 0
         while self.accumulator >= FIXED_DT and steps < MAX_STEPS_PER_FRAME:
@@ -6985,6 +7390,10 @@ class Game:
             self.draw_quests(w)
         elif self.state == ARCHIVE:
             self.draw_archive(w)
+        elif self.state == PASS:
+            self.draw_pass(w)
+        elif self.state == LOCKER:
+            self.draw_locker(w)
         elif self.state == GAUNTLET:
             self.draw_gauntlet(w)
         elif self.ren.cutscene is not None:
@@ -7056,12 +7465,16 @@ class Game:
             for bot in self.robots:
                 bot["doll"].draw(w, self.debug)
         else:
+            self.draw_ps_under(w, self.cpu)
             self.cpu.draw(w, self.debug)
         self.ren.draw_under(w)                     # darkened pitch + afterimages
+        self.draw_ps_under(w, self.player)         # (fire and speed lines behind the player)
         self.ren.draw_player(w)
         self.ren.draw_over_player(w)               # aura, eye glow
+        self.draw_ps_trail(w)                      # the PlayStyle's trail behind the ball (PS MOVES)
         self.ball.draw(w)
         self.ren.draw_ball_fx(w)
+        self.draw_ps_world(w)                      # ...and its marks, fire, speed lines, dizzy stars
 
         if self.state == PLAY:
             self.draw_aim(w)
@@ -9944,7 +10357,11 @@ class Game:
         self.dragging = False
 
     def profile_click(self, pos):
-        pass                                             # BACK is handled for every screen
+        if self.profile_pic_rect().collidepoint(pos.x, pos.y):     # 6 Nov: the picture opens the LOCKER
+            self.open_locker("pfp", back="profile")
+
+    def profile_pic_rect(self):
+        return pygame.Rect(40 + 120 - 80, 140 + 130 - 80, 160, 160)
 
     def draw_profile(self, w):
         mouse = pygame.mouse.get_pos()
@@ -9959,11 +10376,16 @@ class Game:
         me = pygame.Rect(40, 140, 540, 900)
         self.draw_glass(w, me, radius=30, alpha=150, hot=True)
         club = self.clubs[self.user_idx]
-        if club["badge"] is not None:
-            g = self.home_glow((300, 300), (90, 140, 255), 80)
-            w.blit(g, g.get_rect(center=(me.x + 120, me.y + 130)))
-            bi = fit_flag(club["badge"], 140, 162)
-            w.blit(bi, bi.get_rect(center=(me.x + 120, me.y + 130)))
+        # 6 Nov: your profile picture where the club badge was (click it: the LOCKER)
+        pr = self.profile_pic_rect()
+        g = self.home_glow((300, 300), (90, 140, 255), 80)
+        w.blit(g, g.get_rect(center=pr.center))
+        self.draw_pfp(w, self.save.get("pfp", "doll"), pr.center, 156)
+        hov = pr.collidepoint(mouse)
+        edit = pygame.Rect(pr.right - 46, pr.bottom - 40, 50, 50)
+        pygame.draw.circle(w, (255, 206, 90) if hov else (40, 60, 120), edit.center, 22)
+        pygame.draw.circle(w, (10, 14, 30), edit.center, 22, 3)
+        self.home_text(w, "+", edit.center, 34, (40, 24, 4) if hov else WHITE, anchor="center", shadow=False)
         self.home_text(w, club["name"].upper(), (me.x + 222, me.y + 96), 42, WHITE, max_w=me.w - 250)
         level, into, need = level_from_xp(self.save.get("xp", 0))
         self.home_text(w, "LEVEL %d" % level, (me.x + 222, me.y + 150), 30, (255, 226, 150), shadow=False)
@@ -10265,7 +10687,7 @@ class Game:
                 "team": {"name": "MY TEAM", "c1": 6, "c2": 10, "pattern": "PLAIN"},
                 "difficulty": 1, "season": None, "starter_opened": False, "xp": 0,
                 "training_coins": 0, "puzzle_points": 0, "star_points": 0, "tutorial_done": False,
-                "ren_unlocked": False, "essence": 0, "prog": {}}
+                "ren_unlocked": False, "essence": 0, "prog": {}, "gems": 0}
 
     def load_save(self):
         data = self.default_save()
@@ -10308,6 +10730,7 @@ class Game:
         if saved == IMPOSSIBLE:
             saved = 2              # a save from when Impossible was a difficulty button: HARD is the nearest
         self.normal_difficulty = saved
+        self.tidy_cosmetics()                                     # Season 1: gems, pictures, ball skin
         if not self.save.get("ren_unlocked"):
             self.lock_ren()                                       # earn him, don't get given him
         if not (self.difficulty == IMPOSSIBLE and self.wc_slot == "impossible"):
@@ -10528,6 +10951,12 @@ class Game:
             return "samba"
         if card["design"] == "starsign":
             return self.star_key(card)
+        if card["design"] == "season1":                     # 6 Nov: make_s1_card.py
+            ok = self.__dict__.setdefault("_s1_ok", None)
+            if ok is None:
+                ok = self._s1_ok = bool(find_sprite("tpl_s1_card") and find_sprite("tpl_s1frame_card")
+                                        and card["id"] in getattr(self, "card_figs", ()))
+            return "s1" if ok else "sig"
         if card["design"] == "worldsgame":
             # 1 Nov: the evolving card - the flag card's shape, re-coloured per stage (make_wg_evo.py)
             st = int(card.get("wg_stage", 0))
@@ -10866,6 +11295,7 @@ class Game:
         holo = key.startswith("flagholo_")
         sigcard = key == "sig" or key.startswith(("flagsig_", "flagholo_"))
         baking = getattr(self, "_baking_face", False)
+        still = not baking and getattr(self, "_card_pass", None) == "still"   # a still page: no moving parts
         live_over = False
         t = pygame.time.get_ticks() * 0.001
         if glow:                                           # first: the moving half goes over it
@@ -10898,7 +11328,7 @@ class Game:
         W, H = rect.w, rect.h
         pool_key = key in self.POOL_DESIGNS
         light = not pool_key and (key == "b" or (tpl is not None and tpl[3] > 165
-                                                and not key.startswith(("sig", "prodigy", "holo", "flag", "champ_", "stargold"))
+                                                and not key.startswith(("sig", "prodigy", "holo", "flag", "champ_", "stargold", "s1"))
                                                 and key not in WC_SPECIAL_KEYS))
         ink = (20, 28, 76) if light else WHITE
         gold = (150, 104, 14) if light else (246, 206, 100)
@@ -10944,13 +11374,15 @@ class Game:
                 surf.blit(self.fig_scrim(inset.w, inset.h, WG_PLATE if wg else (18, 0, 6) if lb else
                                          (6, 12, 40) if key == "gcr" else (8, 14, 12) if key == "dpor"
                                          else (16, 9, 2) if key == "stargold"
+                                         else (2, 14, 16) if key == "s1"
                                          else (6, 10, 26)),
                           inset.topleft)
                 surf.set_clip(keep)
                 # the border (and on a Limit Breaker the crystal, the laurels and a snapped chain)
                 # goes back on in front of him; the gem at the foot stays behind him
                 over_key = {"wg": "wgframe", "lb": "lbframe", "lbc": "lbcframe",
-                            "gcr": "gcrframe", "dpor": "dporframe", "stargold": "stargoldframe"}.get(key)
+                            "gcr": "gcrframe", "dpor": "dporframe", "stargold": "stargoldframe",
+                            "s1": "s1frame"}.get(key)
                 if key.startswith("champ_"):
                     over_key = "champframe"
                 if flagcard:
@@ -10982,7 +11414,7 @@ class Game:
         pos = self.fit_text(card["pos"], self.font_m, gold, W * 0.3, H * 0.065)
         nx, ny = rect.x + int(W * 0.06), rect.y + int(H * 0.03)
         px_, py = rect.x + int(W * 0.075), rect.y + int(H * 0.035) + num.get_height()
-        if wg or lb or key in WC_SPECIAL_KEYS or key.startswith(("holo", "sig", "flag", "champ_", "stargold")):
+        if wg or lb or key in WC_SPECIAL_KEYS or key.startswith(("holo", "sig", "flag", "champ_", "stargold", "s1")):
             # Poland, England and the white half of France are pale exactly where the rating
             # goes. A soft dark lozenge under it keeps white text readable on every flag.
             pw = max(num.get_width(), pos.get_width()) + int(W * 0.10)
@@ -11047,16 +11479,16 @@ class Game:
         if key.startswith(("club_", "nat_", "sig", "flagsig_")):
             nb = self.fit_text(str(card["number"]), self.font_m, (90, 60, 10), W * 0.14, H * 0.05)
             surf.blit(nb, nb.get_rect(center=(rect.centerx, rect.y + int(H * 1.014))))
-        if (wg or key in WC_SPECIAL_KEYS or key.startswith(("holo", "sig", "flag", "champ_", "stargold"))) \
+        if (wg or key in WC_SPECIAL_KEYS or key.startswith(("holo", "sig", "flag", "champ_", "stargold", "s1"))) \
                 and W >= self.BIG_CARD_W and not dim:
             # no sliding glint on the flag card: it ran down the old card's arch, and on this shape it
             # floated over the flag like a stray speck
             self.draw_card_sheen(surf, rect, "B" if key.startswith(("holob_", "flagb_")) else "A",
-                                 dot=not wg and not key.startswith(("flag", "champ_", "stargold")))
-        if wg:                                             # stars last: they sit on the border
+                                 dot=not wg and not key.startswith(("flag", "champ_", "stargold", "s1")))
+        if wg and not still:                               # stars last: they sit on the border
             self.draw_wg_stars(surf, rect, moving=not getattr(self, "_baking_face", False))
         self.card_overlays(surf, rect, count, stamina, dim, card)
-        if live_over or (holo and not baking and not dim):     # (the big holo card moves too)
+        if (live_over or (holo and not baking and not dim)) and not still:   # (the big holo card moves too)
             self.live_over(surf, key, rect, card)
 
     # ---- the stars round a World's Game card ------------------------------------------
@@ -11314,7 +11746,18 @@ class Game:
         return surf
 
     def blit_card(self, target, card, rect, count=0, stamina=None, dim=False, glow=False):
-        """draw_card, but from the cache. The glow ring is drawn live so it still pulses."""
+        """draw_card, but from the cache. The glow ring is drawn live so it still pulses.
+
+        A still page (still_page) draws its cards twice: the "still" pass is everything that
+        doesn't move (it is kept in the page's picture), the "moving" pass only the shine, sparks
+        and lightning on top - so a screen of cards is one copy plus the bits that move."""
+        cp = getattr(self, "_card_pass", None)
+        if cp == "moving":
+            if self.blit_live_under(target, card, rect, dim, self.CARD_PAD, draw=False):
+                self.live_over(target, self.card_template_key(self.upgraded(card)), rect, card)
+            if card["design"] == "worldsgame" and not dim and self.card_template_key(self.upgraded(card)) == "wg":
+                self.draw_wg_glints(target, rect)
+            return
         if glow:
             t = pygame.time.get_ticks() * 0.001
             pulse = int(10 + 6 * (0.5 + 0.5 * math.sin(t * 3)))
@@ -11322,6 +11765,8 @@ class Game:
         split = self.blit_live_under(target, card, rect, dim, self.CARD_PAD)
         face = self.card_face(card, rect.size, count, stamina, dim, split=split)
         target.blit(face, (rect.x - self.CARD_PAD, rect.y - self.CARD_PAD))
+        if cp == "still":
+            return                                     # the moving pass puts the light on later
         if split:
             self.live_over(target, self.card_template_key(self.upgraded(card)), rect, card)
         if card["design"] == "worldsgame" and not dim and self.card_template_key(self.upgraded(card)) == "wg":
@@ -11356,6 +11801,8 @@ class Game:
             top = key + "top"
         elif key == "stargold":                            # 1 Nov: nothing waves - it glows and shines
             return "stargold"
+        elif key == "s1":                                  # 6 Nov: the Season 1 card, the same way
+            return "s1"
         elif key.startswith("champ_"):
             top = "champtop_" + key[6:]
             ok = self.__dict__.setdefault("_live_ok", {})
@@ -11418,13 +11865,18 @@ class Game:
             if lo is None:
                 return False
             kx, ky = rect.w / float(bx1 - bx0), rect.h / float(by1 - by0)
-            img = pygame.transform.scale(lo, (max(1, int(self.TPL_SIZE[0] * kx)),
-                                              max(1, int(self.TPL_SIZE[1] * ky))))
+            size = (max(1, int(self.TPL_SIZE[0] * kx)), max(1, int(self.TPL_SIZE[1] * ky)))
+            # a still flag (the browser) is the same picture every frame: scale it once and keep it
+            img = scaled(lo, size) if FLAG_STILL else pygame.transform.scale(lo, size)
             surf.blit(img, (rect.x - int(bx0 * kx), rect.y - int(by0 * ky)))
             return True
         if key == "stargold":                              # a warm gold glow behind the big card
             if rect.w >= self.BIG_CARD_W:
                 self.draw_aura_glow(surf, rect, card["id"], STAR_GOLD_AURA)
+            return True
+        if key == "s1":                                    # Season 1: a teal glow
+            if rect.w >= self.BIG_CARD_W:
+                self.draw_aura_glow(surf, rect, card["id"], S1_AURA)
             return True
         if key.startswith("champ_"):                       # the pennants, waving behind the card
             if card.get("id") in CARD_AURA:
@@ -11609,6 +12061,11 @@ class Game:
             self.draw_gold_shine(surf, rect, "stargoldframe", card["id"], every=2.2)
             if rect.w >= self.BIG_CARD_W:
                 self.draw_aura_sparks(surf, rect, card["id"], STAR_GOLD_AURA)
+            return
+        if key == "s1":
+            self.draw_gold_shine(surf, rect, "s1frame", card["id"], every=2.6)
+            if rect.w >= self.BIG_CARD_W:
+                self.draw_aura_sparks(surf, rect, card["id"], S1_AURA)
             return
         if key.startswith("champ_"):
             aura = card.get("id") in CARD_AURA
@@ -12145,6 +12602,15 @@ class Game:
     MULTI_PAD = 20           # the ten-pack grid sits close together: trim the art like it always did
 
     def draw_card(self, surf, card, rect, count=0, stamina=None, dim=False, glow=False):
+        if getattr(self, "_card_pass", None) == "moving" and not getattr(self, "_baking_face", False):
+            # a still page's second pass: only what moves on this card (see still_page)
+            up = self.upgraded(card)
+            key = self.card_template_key(up)
+            if rect.w < self.BIG_CARD_W and self.blit_live_under(surf, card, rect, dim, self.CARD_PAD, draw=False):
+                self.live_over(surf, key, rect, up)
+            if key == "wg":
+                self.draw_wg_stars(surf, rect, moving=True)
+            return
         card = self.upgraded(card)                         # your rank and level, if you own him
         if card["design"] == "beginner" or (card["design"] == "starsign" and self.star_key(card) == "star"):
             self.draw_star_card(surf, card, rect, count, stamina, dim, glow)
@@ -12693,6 +13159,8 @@ class Game:
             bits.append("%d COINS" % int(gift["coins"]))
         if gift.get("sp"):
             bits.append("%d STAR POINTS" % int(gift["sp"]))
+        if gift.get("gems"):
+            bits.append("%d GEMS" % int(gift["gems"]))
         for cid in gift.get("cards", []) or []:
             card = self.cards.get(cid)
             if card:
@@ -12709,6 +13177,9 @@ class Game:
             self.save["coins"] = max(0, int(self.save.get("coins", 0)) + coins)
         if sp:
             self.save["star_points"] = max(0, int(self.save.get("star_points", 0)) + sp)
+        gems = int(gift.get("gems") or 0)                     # Season 1 (6 Nov)
+        if gems:
+            self.save["gems"] = max(0, int(self.save.get("gems", 0) or 0) + gems)
         given = []
         for cid in gift.get("cards", []) or []:
             card = self.cards.get(cid)
@@ -12850,8 +13321,10 @@ class Game:
                 if self.lineup_half == 1 else None
         if st == GAUNTLET:
             return lambda: setattr(self, "state", TITLE)
-        if st in (MAIL, PROFILE, QUESTS):
+        if st in (MAIL, PROFILE, QUESTS, PASS):
             return lambda: setattr(self, "state", TITLE)
+        if st == LOCKER:
+            return self.locker_back
         if st == MYCLUB:
             def leave():
                 self.refresh_team()
@@ -13808,6 +14281,7 @@ class Game:
         if self.ren_unlock_ready(result):                 # Japan + Impossible + the trophy
             self.unlock_ren()
             self.ren_pending = True
+        self.pass_match(result, xp)                       # Season 1 (6 Nov): the same XP fills the pass
         self.award_xp(xp)
         if self.mode == "gauntlet":                       # no rest in a run: 4 halves each, that's it
             self.write_save()
@@ -14209,6 +14683,37 @@ class Game:
         return r
 
     def draw_packs(self, w):
+        # the strip of drafts glides toward where the wheel / arrows asked (eased) - worked out here,
+        # once a frame, because the page itself may only be painted when something changes
+        if self.view_pack in RETIRED_PACKS:
+            self.view_pack = self.store_packs()[0]
+        pack = self.shown_pack(self.view_pack)
+        if getattr(self, "draft_pack", None) != pack:
+            self.draft_pack, self.draft_x, self.draft_target = pack, 0.0, 0.0
+        tgt = clamp(getattr(self, "draft_target", 0.0), 0, self.draft_max_scroll())
+        self.draft_target = tgt
+        self.draft_x = tgt if abs(tgt - self.draft_x) < 1.0 else self.draft_x + (tgt - self.draft_x) * 0.22
+        key = None
+        if not getattr(self, "fx", None):
+            key = ("packs", self.view_pack, pack, self.draft_left_text(), int(round(self.draft_x)), self.draft_target,
+                   self.save_key(), self.hover_key(pygame.Rect(40, 30, 200, 70), self.packs_layout(), self.packs_ui(),
+                                                   self.draft_layout()))
+        self.still_page(w, key, self.draw_packs_page, self.draw_packs_moving)
+
+    def draw_packs_moving(self, w):
+        """The pack store's moving parts: the light on the draft's cards."""
+        D = self.draft_layout()
+        strip = D["strip"]
+        clip = w.get_clip()
+        w.set_clip(strip)
+        try:
+            for cr, c in D["cards"] + D["side"]:
+                if cr.right > strip.x and cr.x < strip.right:
+                    self.draw_card(w, c, cr)
+        finally:
+            w.set_clip(clip)
+
+    def draw_packs_page(self, w):
         w.blit(self.shop_bg or self.select_bg, (0, 0))
         self.draw_back_button(w)
         self.draw_coins(w)
@@ -14268,12 +14773,8 @@ class Game:
                                                  draft_title(self.next_in(self.rotation_of(pack))))
             nt = self.fit_text(nxt, self.font_s, (255, 214, 110), 640, 34)
             w.blit(nt, nt.get_rect(midright=(panel.right - 30, ic[1])))
-        # slide toward where the wheel / arrows asked (eased, so it glides)
-        if getattr(self, "draft_pack", None) != pack:
+        if getattr(self, "draft_pack", None) != pack:          # (draw_packs eases the slide)
             self.draft_pack, self.draft_x, self.draft_target = pack, 0.0, 0.0
-        tgt = clamp(getattr(self, "draft_target", 0.0), 0, self.draft_max_scroll())
-        self.draft_target = tgt
-        self.draft_x = tgt if abs(tgt - self.draft_x) < 1.0 else self.draft_x + (tgt - self.draft_x) * 0.22
         D = self.draft_layout()
         strip = D["strip"]
         clip = w.get_clip()
@@ -14775,6 +15276,7 @@ class Game:
                 else (lambda: self.open_essence()) if pr.get("back") == "essence" \
                 else (lambda: self.open_quests()) if pr.get("back") == "quests" \
                 else (lambda: self.open_archive()) if pr.get("back") == "archive" \
+                else (lambda: self.open_pass()) if pr.get("back") == "pass" \
                 else (lambda: self.open_packs(pr["pack"]))
             self.card_click(pr["card"], back)
 
@@ -14993,6 +15495,10 @@ class Game:
     WK_GLOBE_PX = 152
     WK_CLOSE = (480, 270, 24)
     WK_FLAG_FRAMES = 12
+    # 5 Nov (third pass): the end of the walkout - confetti raining, pyro every 3 s - was every
+    # piece of confetti worked out and drawn in Python each frame, 400-500 of them. The browser
+    # gets 60% as many, drawn as flat flutters instead of turning quads, and a still flag.
+    WK_PARTS_K = 0.6 if WEB_BUILD else 1.0
     # (centre of the burst, its middle, its edge, accent) - make_pack_scene.py's THEMES
     WK_THEME = {"A": ((255, 196, 255), (150, 62, 255), (84, 18, 226), (60, 255, 150)),
                 "B": ((206, 232, 255), (60, 120, 255), (18, 40, 176), (255, 214, 90)),
@@ -15262,7 +15768,7 @@ class Game:
 
     def wk_pyro(self, pr, x, y, col):
         parts = pr.setdefault("wk_parts", [])
-        for _ in range(70):
+        for _ in range(int(70 * self.WK_PARTS_K)):
             parts.append([x + random.uniform(-24, 24), y, random.uniform(-190, 190), random.uniform(-1700, -900),
                           0.0, 0.0, random.uniform(5, 10),
                           random.choice(((255, 255, 255), (255, 236, 170), (255, 200, 90), col)),
@@ -15298,7 +15804,14 @@ class Game:
                 p[1] += p[3] * dt
                 if p[1] > HEIGHT + 30:
                     continue
-                c, s = math.cos(p[4]), math.sin(p[4] * 0.45)
+                c = math.cos(p[4])
+                if WEB_BUILD:                              # flat: the flutter is its width turning
+                    hw = max(1, int(p[6] * max(0.12, abs(c))))
+                    pygame.draw.rect(w, p[7] if c > 0 else _shade(p[7], 0.6),
+                                     (int(p[0]) - hw, int(p[1] - p[6] * 0.42), hw * 2, int(p[6] * 0.84)))
+                    alive.append(p)
+                    continue
+                s = math.sin(p[4] * 0.45)
                 hw, hh = p[6] * max(0.12, abs(c)), p[6] * 0.42
                 ca, sa = math.cos(p[4] * 0.45), s
                 pts = [(p[0] + ca * dx - sa * dy, p[1] + sa * dx + ca * dy)
@@ -15683,7 +16196,7 @@ class Game:
             w.blit(img, img.get_rect(center=(cx, cy)))
         if not pr.get("wk_crest"):
             pr["wk_crest"] = True
-            self.wk_confetti(pr, cx, cy, 190, 1500, self.WK_CONFETTI + (c, acc))
+            self.wk_confetti(pr, cx, cy, int(190 * self.WK_PARTS_K), 1500, self.WK_CONFETTI + (c, acc))
         if k < 0.14:
             wash(w, (255, 255, 255, int(220 * (1 - k / 0.14))))
         if t > self.WK_CLUB_OUT:
@@ -15710,8 +16223,7 @@ class Game:
                              else "BEGINNER CARD" if card["design"] == "beginner"
                              else "LIMIT BREAKERS - POOL %s" % pool if card["design"] == "limitbreakers"
                              else "POOL %s" % pool)
-        pad = tint((WIDTH, 230), (6, 4, 16, 150))
-        w.blit(pad, (0, HEIGHT - 230))
+        # (the dark band behind these words is in the stadium picture: wk_stadium_bg)
         self.home_text(w, msg, (cx, 892), 70, (210, 210, 228) if dup else glow, anchor="center")
         self.home_text(w, sub, (cx, 962), 44, WHITE, anchor="center")
         self.home_text(w, "CLICK TO CONTINUE  -  DOUBLE-CLICK FOR STATS", (cx, 1030), 30, (200, 220, 200),
@@ -15722,7 +16234,10 @@ class Game:
         if not pr.get("wk_stadium"):
             pr["wk_stadium"] = True
             pr["wk_parts"], pr["wk_flash"] = [], []
-        w.blit(self.wk_full("pk_stadium_" + theme), (0, 0))
+        # once the words are up, the dark band under them is part of the stadium picture (made once)
+        # rather than a 2,000 x 230 blend every frame
+        padded = t >= land + 0.4
+        w.blit(self.wk_stadium_bg(theme, padded), (0, 0))
         self.wk_lasers(w, now, theme)
         base = self.WK_STAGE_Y
         start = self.WK_C_OPEN if plain else self.WK_DARK
@@ -15741,13 +16256,14 @@ class Game:
             if not plain:
                 for x in (470, WIDTH - 470):
                     self.wk_pyro(pr, x, 800, c)
-                self.wk_confetti(pr, cx, 420, 120 if pool == "A" else 60, 1300, self.WK_CONFETTI + (c, acc))
+                self.wk_confetti(pr, cx, 420, int((120 if pool == "A" else 60) * self.WK_PARTS_K), 1300,
+                                 self.WK_CONFETTI + (c, acc))
         local = t - land
         if pool == "A" and int(local / 3.0) > pr.get("wk_pyro_n", 0):   # pyro again every 3 s
             pr["wk_pyro_n"] = int(local / 3.0)
             for x in (470, WIDTH - 470):
                 self.wk_pyro(pr, x, 800, c)
-        rate = {"A": 55, "B": 26}.get(pool, 0 if plain else 12)        # confetti raining down
+        rate = {"A": 55, "B": 26}.get(pool, 0 if plain else 12) * self.WK_PARTS_K   # confetti raining down
         if rate:
             pr["wk_rain"] = pr.get("wk_rain", 0.0) + rate * rdt
             while pr["wk_rain"] >= 1.0:
@@ -15757,13 +16273,16 @@ class Game:
                      random.uniform(4, 10), random.uniform(7, 14), random.choice(self.WK_CONFETTI + (c, acc)),
                      9.0, 0])
         unfurl = 1.0 - (1.0 - min(1.0, local / 0.4)) ** 3
-        flag = self.wk_flag(card, int(now * 11) % self.WK_FLAG_FRAMES, (780, 520))
+        flag = self.wk_flag(card, 0 if FLAG_STILL else int(now * 11) % self.WK_FLAG_FRAMES, (780, 520))
         if flag is not None:
             fw = max(8, int(flag.get_width() * unfurl))
             img = flag if fw == flag.get_width() else pygame.transform.scale(flag, (fw, flag.get_height()))
             w.blit(img, img.get_rect(center=(cx, base - 330)))
         rect = pygame.Rect(0, 0, 390, 536)
         sc = 1.0 + 0.10 * (1.0 - min(1.0, local / 0.25)) ** 2
+        # the landing pop in four sizes, not a new size (a whole new card picture) every frame -
+        # and wk_preload has built all four while the pack waited for its tap
+        sc = min(self.WK_POP, key=lambda v: abs(v - sc))
         rect.size = (int(390 * sc), int(536 * sc))
         rect.midbottom = (cx, base)
         halo = self.wk_soft((rect.w + 360, rect.h + 360), glow, 190 + 50 * math.sin(now * 4) if pool == "A" else 150)
@@ -15778,6 +16297,20 @@ class Game:
         if local >= 0.4:
             self.wk_landing_text(w, card, pool, pr["count"], glow, cx)
 
+    WK_PAD = (6, 4, 16, 150)                 # the band behind the landing words
+    WK_POP = (1.10, 1.06, 1.03, 1.0)         # the card's sizes as it lands
+
+    def wk_stadium_bg(self, theme, padded):
+        base = self.wk_full("pk_stadium_" + theme)
+        if not padded or base is None:
+            return base
+        hit = self.__dict__.get("_wk_padbg")
+        if hit is None or hit[0] is not base:
+            out = base.copy()
+            wash(out, self.WK_PAD, pygame.Rect(0, HEIGHT - 230, WIDTH, 230))
+            hit = self._wk_padbg = (base, out)
+        return hit[1]
+
     def wk_preload(self, pr, theme, plain):
         """While the pack waits for its tap, get this opening's big pictures ready, one a frame.
 
@@ -15785,11 +16318,20 @@ class Game:
         the full screen on the very frame they first appeared - a hitch in the middle of the
         rip. The pack sits there for a second or more anyway, so the work goes there."""
         n = pr["wk_pre"] = pr.get("wk_pre", 0) + 1
+        card = pr["card"]
+
+        def landing(sc):                                     # the card as it lands (wk_stadium), offscreen
+            rect = pygame.Rect(30, 30, int(390 * sc), int(536 * sc))
+            self.blit_card(scratch((rect.w + 60, rect.h + 60), 6), card, rect)
+        # the card itself (in each size of its landing pop), its flag behind it and the flag on the
+        # pole: built on the frames he landed, they were the hitch at the end of the opening
         jobs = [lambda: self.wk_full("pk_stadium_" + theme)]
-        if not plain:
+        if not plain:                                        # (in the order the opening needs them)
             jobs += [lambda: self.wk_full("pk_burst_" + theme),
                      lambda: self.wk_blit_globe(scratch((8, 8), 7), 0, -999, -999, 8),
                      lambda: self.wk_close_frames(theme)]
+        jobs += [lambda sc=sc: landing(sc) for sc in self.WK_POP]
+        jobs += [lambda: self.wk_flag(card, 0, (780, 520)), lambda: self.wk_stadium_bg(theme, True)]
         i = n - 2                                            # (the first waiting frame builds the stage)
         if 0 <= i < len(jobs):
             try:
@@ -16657,6 +17199,26 @@ class Game:
         self.pvp["me_t"] = 1.0 / NET_ME_HZ
         self.net.send({"t": "me", "d": self.to_host(self.doll_state(self.player)), "lat": round(self.net_lat(), 1)})
 
+    @staticmethod
+    def move_out(m, flip):
+        """A PlayStyle path for the wire (6 Nov): both screens fly the same curl / fireball / lob."""
+        fx = (lambda v: [round(WIDTH - v[0], 1), round(v[1], 1)]) if flip else (lambda v: [round(v[0], 1), round(v[1], 1)])
+        return {"k": m["k"], "p0": fx(m["p0"]), "c": fx(m["c"]), "p2": fx(m["p2"]), "t": round(m["t"], 4),
+                "T": round(m["T"], 4), "wob": m.get("wob", 0.0), "L": m.get("L", 1.0), "id": m["id"]}
+
+    def move_in(self, mv, owner, flip):
+        try:
+            fx = (lambda v: (WIDTH - float(v[0]), float(v[1]))) if flip else (lambda v: (float(v[0]), float(v[1])))
+            m = {"k": str(mv["k"]), "p0": fx(mv["p0"]), "c": fx(mv["c"]), "p2": fx(mv["p2"]), "t": float(mv["t"]),
+                 "T": max(0.05, float(mv["T"])), "wob": float(mv.get("wob", 0.0)), "L": float(mv.get("L", 1.0)),
+                 "id": int(mv["id"])}
+        except (KeyError, TypeError, ValueError, IndexError):
+            return
+        b = self.ball
+        b.move, b.move_owner, b.move_grace = m, owner, 0.14
+        b.glue = None
+        b.fx_kind, b.fx_t = m["k"], max(0.0, m["T"] - m["t"]) + 0.5
+
     def ball_state(self):
         b = self.ball
         return [round(b.pos.x, 1), round(b.pos.y, 1), round(b.vel.x, 1), round(b.vel.y, 1),
@@ -16701,8 +17263,11 @@ class Game:
         if now - p["kick_send_t"] >= 1.0 / NET_ME_HZ:
             p["kick_send_t"] = now
             b = self.ball_state()
-            self.net.send({"t": "kick", "id": p["kick_id"], "b": [WIDTH - b[0], b[1], -b[2], b[3], -b[4], b[5]],
-                           "lat": round(self.net_lat(), 1)})
+            msg = {"t": "kick", "id": p["kick_id"], "b": [WIDTH - b[0], b[1], -b[2], b[3], -b[4], b[5]],
+                   "lat": round(self.net_lat(), 1)}
+            if self.ball.move is not None and self.ball.move_owner is self.player:
+                msg["mv"] = self.move_out(self.ball.move, True)       # my PlayStyle's path, in his world
+            self.net.send(msg)
 
     def take_guest_kick(self, msg):
         """Host: the guest touched the ball on his screen - it's his kick, if it could be."""
@@ -16725,6 +17290,9 @@ class Game:
         self.ball.vel.update(b[2], b[3])
         self.ball.spin = b[4]
         self.ball.frozen = False
+        self.ball.move = None
+        if msg.get("mv"):
+            self.move_in(msg["mv"], self.cpu, False)                   # (already in my world)
         self.last_touch = "away"
         p["kick_seen"] = kid
 
@@ -16742,6 +17310,8 @@ class Game:
             "ka": self.pvp.get("kick_seen", 0), "lat": round(self.net_lat(), 1),
             "ls": self.last_scorer if self.state == GOAL else None,
         }
+        if self.ball.move is not None:
+            msg["mv"] = self.move_out(self.ball.move, False)
         stun = getattr(self.cpu, "throw_timer", 0.0)
         if stun > 0.05:
             msg["gs"] = round(stun, 2)                       # a PlayStyle froze the guest (TRICKSTER)
@@ -16797,6 +17367,11 @@ class Game:
             self.ball.vel.y += (v[3] - self.ball.vel.y) * 0.5
             self.ball.spin = v[4]
             self.ball.frozen = bool(v[5])
+            mv = msg.get("mv")                                    # his PlayStyle's path: fly it too
+            if mv and (self.ball.move is None or self.ball.move.get("id") != mv.get("id")):
+                self.move_in(mv, self.cpu, True)
+            elif not mv and self.ball.move is not None and self.ball.move_owner is not self.player:
+                self.ball.move = None
         sc = msg.get("s")
         if sc and len(sc) == 2:
             sc = [sc[1], sc[0]]                                   # their goals are my goals conceded
@@ -17969,6 +18544,31 @@ class Game:
 
     def draw_stars(self, w):
         S = self.ss()
+        key = None
+        if S["modal"] is None and not S["dropdown"] and self.store_confirm is None and not getattr(self, "fx", None):
+            L = self.ss_layout()
+            key = ("stars", S["tab"], S["scroll"], S["mine_scroll"], S["sort"], S["mine_sort"], S["watch_only"],
+                   json.dumps(S["filters"], sort_keys=True), json.dumps(S["mine_filters"], sort_keys=True),
+                   tuple(sorted(S["sel"].items())), self.save_key(),
+                   self.hover_key(self.BACK_RECT, L, [self.ss_star_rect(r) for _c, r in L["grid"]]))
+        self.still_page(w, key, self.draw_stars_page, self.draw_stars_moving)
+
+    def draw_stars_moving(self, w):
+        """Star Signings' moving parts: the light on its cards (still_page keeps the rest)."""
+        S = self.ss()
+        L = self.ss_layout()
+        for c, r in L["grid"]:
+            if S["tab"] == "players":
+                cr = pygame.Rect(0, 0, 176, 278)
+                cr.midtop = (r.centerx, r.y + 18)
+                self.blit_card(w, c, cr)
+            elif self.releasable(c) > 0:                       # (a locked card is veiled: no shine)
+                cr = pygame.Rect(0, 0, 166, 262)
+                cr.midtop = (r.centerx, r.y + 16)
+                self.blit_card(w, c, cr, count=self.save["owned"].get(c["id"], 0))
+
+    def draw_stars_page(self, w):
+        S = self.ss()
         mouse = pygame.mouse.get_pos()
         t = pygame.time.get_ticks() * 0.001
         w.blit(self.home_bg(), (0, 0))
@@ -18219,6 +18819,859 @@ class Game:
         return (int(p.get("xp", 0)), int(p.get("rank", 0)), tuple(sorted((p.get("skill") or {}).items())), evo)
 
 
+    # ---- SEASON 1 (6 Nov): gems, rewarded ads, the pass, profile pictures, ball skins ---------
+    def tidy_cosmetics(self):
+        """Clean the Season 1 parts of a save and put the ball skin on the ball."""
+        global BALL_SKIN
+        S = self.save
+        try:
+            S["gems"] = max(0, int(S.get("gems") or 0))
+        except (TypeError, ValueError):
+            S["gems"] = 0
+        S["pfps"] = [k for k in dict.fromkeys(S.get("pfps") or []) if k in PFP_NAME and k not in PFP_OWNER]
+        S["balls"] = [k for k in dict.fromkeys(S.get("balls") or []) if k in BALL_SKIN_NAME]
+        if S.get("pfp") not in PFP_NAME:
+            S["pfp"] = "doll"
+        if S.get("ball") not in BALL_SKIN_NAME or (S["ball"] != "classic" and S["ball"] not in S["balls"]):
+            S["ball"] = "classic"
+        if BALL_SKIN != S["ball"]:
+            BALL_SKIN = S["ball"]
+            if getattr(self, "ball", None) is not None:
+                self.ball.art = self.ball._build_art()
+
+    # ---- the season's clock
+    def season_today(self):
+        return today_number() + int(getattr(self, "pass_shift", 0))     # (the checks move the calendar)
+
+    @staticmethod
+    def season_days():
+        import datetime
+        return (datetime.date(*SEASON["start"]).toordinal(), datetime.date(*SEASON["end"]).toordinal())
+
+    def season_on(self):
+        a, b = self.season_days()
+        return a <= self.season_today() < b
+
+    def season_left(self):
+        """'41D 6H' until the season ends (it ends at local midnight on the end date)."""
+        import datetime
+        _a, b = self.season_days()
+        now = datetime.datetime.now() + datetime.timedelta(days=int(getattr(self, "pass_shift", 0)))
+        end = datetime.datetime.combine(datetime.date.fromordinal(b), datetime.time())
+        secs = max(0, (end - now).total_seconds())
+        h = int(secs // 3600)
+        return ("%dD %dH" % (h // 24, h % 24)) if h >= 24 else ("%dH %02dM" % (h, int(secs % 3600 // 60)))
+
+    # ---- the pass in your save
+    def pass_state(self):
+        P = self.save.get("pass")
+        if not isinstance(P, dict) or P.get("season") != SEASON["id"]:
+            P = self.save["pass"] = {"season": SEASON["id"], "xp": 0, "premium": False, "free": [], "prem": [],
+                                     "won_day": 0}
+        for k in ("free", "prem"):
+            got = []
+            for t in P.get(k) or []:
+                try:
+                    t = int(t)
+                except (TypeError, ValueError):
+                    continue
+                if 1 <= t <= PASS_TIERS and t not in got:
+                    got.append(t)
+            P[k] = got
+        try:
+            P["xp"] = max(0, min((PASS_TIERS - 1) * PASS_TIER_XP, int(P.get("xp") or 0)))
+        except (TypeError, ValueError):
+            P["xp"] = 0
+        P["premium"] = bool(P.get("premium"))
+        return P
+
+    def pass_tier(self):
+        """The tier you've reached (1-50): tier 1 is open from the start."""
+        return min(PASS_TIERS, 1 + self.pass_state()["xp"] // PASS_TIER_XP)
+
+    def pass_into(self):
+        """Pass XP into the current tier, and what the next one needs (0, 0 at the top)."""
+        P = self.pass_state()
+        if self.pass_tier() >= PASS_TIERS:
+            return 0, 0
+        return P["xp"] % PASS_TIER_XP, PASS_TIER_XP
+
+    def pass_add_xp(self, n, quiet=False):
+        """Pass XP while the season is on: a toast for every tier it crosses."""
+        n = int(n)
+        if n <= 0 or not self.season_on() or getattr(self, "tut", None) is not None:
+            return 0
+        P = self.pass_state()
+        before = self.pass_tier()
+        P["xp"] = min((PASS_TIERS - 1) * PASS_TIER_XP, P["xp"] + n)
+        after = self.pass_tier()
+        self.last_pass_xp = getattr(self, "last_pass_xp", 0) + n
+        if after > before:
+            self.toast("%s  -  TIER %d REACHED" % (SEASON["name"], after), (150, 255, 230), 3.2)
+        elif not quiet:
+            pass
+        return n
+
+    def pass_match(self, result, xp):
+        """settle_match: the match's XP goes on the pass too, and the day's first win pays extra."""
+        self.last_pass_xp = 0
+        if self.mode == "free" or getattr(self, "forfeited", False):
+            return
+        P = self.pass_state()
+        gain = xp
+        if result == "win" and int(P.get("won_day") or 0) != self.season_today():
+            P["won_day"] = self.season_today()
+            gain += PASS_XP_FIRST_WIN
+            if self.season_on():
+                self.toast("FIRST WIN OF THE DAY  -  +%d PASS XP" % PASS_XP_FIRST_WIN, (150, 255, 230), 3.0)
+        self.pass_add_xp(gain, quiet=True)
+
+    def pass_can_claim(self, tier, track):
+        P = self.pass_state()
+        if tier > self.pass_tier() or tier in P["free" if track == "f" else "prem"]:
+            return False
+        return track == "f" or P["premium"]
+
+    def pass_claimable(self):
+        """Rewards reached and waiting (the dot on the PASS tab)."""
+        P = self.pass_state()
+        n = 0
+        for t in range(1, self.pass_tier() + 1):
+            n += t not in P["free"]
+            n += P["premium"] and t not in P["prem"]
+        return n
+
+    @staticmethod
+    def pass_reward_words(rew):
+        if rew.get("coins"):
+            return "%d COINS" % rew["coins"]
+        if rew.get("sp"):
+            return "{:,} STAR POINTS".format(rew["sp"])
+        if rew.get("gems"):
+            return "%d GEMS" % rew["gems"]
+        if rew.get("pack"):
+            return "FREE PACK" if rew["pack"] == 1 else "%d FREE PACKS" % rew["pack"]
+        if rew.get("pfp"):
+            return "PICTURE: " + PFP_NAME.get(rew["pfp"], rew["pfp"].upper())
+        if rew.get("ball"):
+            return "BALL: " + BALL_SKIN_NAME.get(rew["ball"], rew["ball"].upper())
+        if rew.get("card"):
+            return "SEASON 1 CARD"
+        return ""
+
+    def pass_give(self, rew):
+        """Put one reward in the save. Returns what has to be shown: ("card", card) / ("pack", n) / None."""
+        S = self.save
+        for key in ("coins", "gems"):
+            if rew.get(key):
+                S[key] = int(S.get(key, 0) or 0) + int(rew[key])
+        if rew.get("sp"):
+            S["star_points"] = int(S.get("star_points", 0) or 0) + int(rew["sp"])
+        if rew.get("pfp") and rew["pfp"] not in S.setdefault("pfps", []):
+            S["pfps"].append(rew["pfp"])
+        if rew.get("ball") and rew["ball"] not in S.setdefault("balls", []):
+            S["balls"].append(rew["ball"])
+        if rew.get("pack"):
+            S["free_packs"] = int(S.get("free_packs", 0) or 0) + int(rew["pack"])
+            return ("pack", int(rew["pack"]))
+        if rew.get("card"):
+            card = self.cards.get(rew["card"])
+            if card is not None:
+                return ("card", card, self.give_card(card))
+        return None
+
+    def pass_claim(self, tier, track):
+        """CLAIM one box on the pass."""
+        if not self.pass_can_claim(tier, track):
+            return False
+        P = self.pass_state()
+        rew = PASS_REWARDS[tier][0 if track == "f" else 1]
+        P["free" if track == "f" else "prem"].append(tier)
+        show = self.pass_give(rew)
+        self.toast("TIER %d  -  %s" % (tier, self.pass_reward_words(rew)), (150, 255, 230), 2.8)
+        self.sfx.play("cheer", 0.5)
+        self.write_save()
+        self.pass_show(show)
+        return True
+
+    def pass_claim_all(self):
+        """Every box you can claim, in one go (a card walks out last, or one pack opens)."""
+        P = self.pass_state()
+        shows, n = [], 0
+        for t in range(1, self.pass_tier() + 1):
+            for track, k in (("f", 0), ("p", 1)):
+                if self.pass_can_claim(t, track):
+                    P["free" if track == "f" else "prem"].append(t)
+                    shows.append(self.pass_give(PASS_REWARDS[t][k]))
+                    n += 1
+        if not n:
+            return False
+        self.toast("CLAIMED %d REWARD%s" % (n, "" if n == 1 else "S"), (150, 255, 230), 2.8)
+        self.sfx.play("cheer", 0.6)
+        self.write_save()
+        cards = [x for x in shows if x and x[0] == "card"]
+        packs = [x for x in shows if x and x[0] == "pack"]
+        self.pass_show(cards[-1] if cards else (packs[0] if packs else None))
+        return True
+
+    def pass_show(self, show):
+        if not show:
+            return
+        if show[0] == "card":                           # the Season 1 card: the full walkout
+            card, count = show[1], show[2]
+            self.pack_reveal = {"card": card, "t": 0.0, "count": count, "pack": 0, "tier": "A",
+                                "opened": False, "back": "pass"}
+            self.fx = []
+            self.state = PACK_OPEN
+        elif show[0] == "pack":                         # open one now; any more wait on QUESTS
+            if show[1] > 1 or int(self.save.get("free_packs", 0) or 0) > 1:
+                self.toast("MORE FREE PACKS WAIT ON THE QUESTS TAB", (255, 130, 140), 3.0)
+            if self.quest_open_pack():
+                self.pack_reveal["back"] = "pass"
+
+    def pass_buy_premium(self):
+        P = self.pass_state()
+        if P["premium"]:
+            return False
+        if int(self.save.get("gems", 0)) < PASS_PREMIUM_GEMS:
+            self.toast("%d GEMS NEEDED  -  WATCH ADS FOR MORE" % (PASS_PREMIUM_GEMS - int(self.save.get("gems", 0))),
+                       (255, 160, 150), 3.0)
+            return False
+        self.save["gems"] = int(self.save["gems"]) - PASS_PREMIUM_GEMS
+        P["premium"] = True
+        self.toast("PREMIUM PASS UNLOCKED", (255, 226, 150), 3.2)
+        self.sfx.play("cheer", 0.8)
+        self.write_save()
+        return True
+
+    def pass_buy_tier(self):
+        if self.pass_tier() >= PASS_TIERS:
+            return False
+        if not self.season_on():
+            self.toast("THE SEASON IS OVER", (255, 160, 150))
+            return False
+        if int(self.save.get("gems", 0)) < PASS_TIER_GEMS:
+            self.toast("%d GEMS NEEDED" % (PASS_TIER_GEMS - int(self.save.get("gems", 0))), (255, 160, 150))
+            return False
+        self.save["gems"] = int(self.save["gems"]) - PASS_TIER_GEMS
+        P = self.pass_state()
+        P["xp"] = min((PASS_TIERS - 1) * PASS_TIER_XP, (P["xp"] // PASS_TIER_XP + 1) * PASS_TIER_XP)
+        self.toast("%s  -  TIER %d REACHED" % (SEASON["name"], self.pass_tier()), (150, 255, 230), 2.6)
+        self.sfx.play("tap", 0.6)
+        self.write_save()
+        return True
+
+    # ---- rewarded ads (the browser: play.js shows the ad, bridge.js carries the answer back)
+    def ads_today(self):
+        A = self.save.get("ads")
+        if not isinstance(A, dict) or A.get("day") != self.season_today():
+            A = self.save["ads"] = {"day": self.season_today(), "n": 0}
+        return A
+
+    def watch_ad(self):
+        if getattr(self, "ad_wait", None) is not None:
+            return False
+        A = self.ads_today()
+        if A["n"] >= ADS_PER_DAY:
+            self.toast("THAT'S TODAY'S %d ADS  -  MORE TOMORROW" % ADS_PER_DAY, (255, 200, 120), 3.0)
+            return False
+        win = js_window()
+        if win is None:
+            self.toast("ADS ARE ON THE BROWSER VERSION  -  PLAY ON THE SITE FOR GEMS", (255, 200, 120), 3.4)
+            return False
+        try:
+            win.aswcAd("gems")
+        except Exception:
+            self.toast("ADS AREN'T SET UP YET", (255, 200, 120), 3.0)
+            return False
+        self.ad_wait = time.time()
+        try:
+            pygame.mixer.music.pause()
+        except Exception:
+            pass
+        return True
+
+    def poll_ad(self):
+        """Has the ad finished? Pays the gems only for one watched to the end."""
+        if getattr(self, "ad_wait", None) is None:
+            return
+        raw = ""
+        try:
+            raw = js_window().aswcAdPoll() or ""
+        except Exception:
+            raw = json.dumps({"ok": False, "why": "noads"})
+        if not raw and time.time() - self.ad_wait < AD_WAIT:
+            return
+        self.ad_wait = None
+        try:
+            pygame.mixer.music.unpause()
+        except Exception:
+            pass
+        try:
+            res = json.loads(raw) if raw else {"ok": False, "why": "noad"}
+        except Exception:
+            res = {"ok": False, "why": "noad"}
+        self.ad_done(bool(res.get("ok")), str(res.get("why") or ""))
+
+    def ad_done(self, ok, why=""):
+        if ok:
+            A = self.ads_today()
+            A["n"] += 1
+            self.save["gems"] = int(self.save.get("gems", 0) or 0) + GEMS_PER_AD
+            self.toast("+%d GEMS" % GEMS_PER_AD, (150, 255, 230), 2.6)
+            self.sfx.play("cheer", 0.5)
+            self.write_save()
+        elif why == "noads":
+            self.toast("ADS AREN'T SET UP YET", (255, 200, 120), 3.0)
+        elif why == "skipped":
+            self.toast("AD CLOSED EARLY  -  NO GEMS", (255, 160, 150), 3.0)
+        else:
+            self.toast("NO AD READY  -  TRY AGAIN IN A MINUTE", (255, 200, 120), 3.0)
+
+    # ---- the owner (the site's admin account) and what you own
+    def is_owner(self):
+        if getattr(self, "owner_override", None) is not None:
+            return bool(self.owner_override)
+        win = js_window()
+        if win is None:
+            return False
+        now = time.time()
+        hit = self.__dict__.get("_owner_seen")
+        if hit is not None and now - hit[0] < 2.0:
+            return hit[1]
+        try:
+            yes = bool(win.aswcOwner())
+        except Exception:
+            yes = False
+        self._owner_seen = (now, yes)
+        return yes
+
+    def pfp_owned(self, key):
+        if key in PFP_OWNER:
+            return self.is_owner()
+        return key in PFP_START or key in self.save.get("pfps", [])
+
+    def ball_owned(self, key):
+        return key == "classic" or key in self.save.get("balls", [])
+
+    def pfp_how(self, key):
+        """Where a picture or ball comes from, for a locked one."""
+        if key in PFP_OWNER:
+            return "OWNER ONLY"
+        for t in range(1, PASS_TIERS + 1):
+            for k, track in ((0, "FREE"), (1, "PREMIUM")):
+                rew = PASS_REWARDS[t][k]
+                if rew.get("pfp") == key or rew.get("ball") == key:
+                    return "%s TIER %d" % (track, t)
+        return ""
+
+    def shown_pfp(self, key):
+        """What actually gets drawn: an owner picture falls back when you aren't the owner."""
+        return key if key in PFP_NAME and self.pfp_owned(key) else "doll"
+
+    def pfp_img(self, key, size):
+        """The picture at size x size (pixel art: scaled hard). The live one gives the frame for now."""
+        cache = self.__dict__.setdefault("_pfp_imgs", {})
+        frames = PFP_LIVE.get(key, 1)
+        f = int(pygame.time.get_ticks() / 90.0) % frames if frames > 1 else 0
+        hit = cache.get((key, size, f))
+        if hit is not None:
+            return hit
+        raw = cache.get((key, "raw"))
+        if raw is None:
+            raw = cache[(key, "raw")] = load_raw("pfp_" + key) or False
+        if raw is False:
+            img = pygame.Surface((size, size), pygame.SRCALPHA)
+            pygame.draw.circle(img, (40, 60, 120), (size // 2, size // 2), size // 2)
+        else:
+            fw = raw.get_width() // frames
+            frame = raw.subsurface((f * fw, 0, fw, raw.get_height()))
+            img = pygame.transform.scale(frame, (size, size))
+        if len(cache) > 200:
+            cache.clear()
+        cache[(key, size, f)] = img
+        return img
+
+    def draw_pfp(self, w, key, centre, size):
+        img = self.pfp_img(self.shown_pfp(key), size)
+        w.blit(img, img.get_rect(center=(int(centre[0]), int(centre[1]))))
+
+    def ball_img(self, key, size):
+        cache = self.__dict__.setdefault("_ball_imgs", {})
+        hit = cache.get((key, size))
+        if hit is None:
+            raw = load_raw("ball_" + key) if key != "classic" else None
+            raw = raw or load_raw("ball", "football")
+            hit = pygame.transform.scale(raw, (size, size)) if raw is not None else pygame.Surface((size, size))
+            cache[(key, size)] = hit
+        return hit
+
+    def equip_ball(self, key):
+        global BALL_SKIN
+        if not self.ball_owned(key):
+            return False
+        self.save["ball"] = BALL_SKIN = key
+        self.ball.art = self.ball._build_art()
+        self.write_save()
+        return True
+
+    def equip_pfp(self, key):
+        if not self.pfp_owned(key):
+            return False
+        self.save["pfp"] = key
+        self.write_save()
+        return True
+
+    # ---- the PASS screen
+    PASS_COLS = 8
+    PASS_COL_W = 196
+
+    def open_pass(self):
+        self.pass_state()
+        if getattr(self, "pass_scroll", None) is None:
+            self.pass_scroll = float(max(0, min(PASS_TIERS - self.PASS_COLS, self.pass_tier() - 3)))
+        self.state = PASS
+        self.dragging = False
+
+    def pass_slide(self, cols):
+        self.pass_scroll = clamp(getattr(self, "pass_scroll", 0.0) + cols * 2, 0, PASS_TIERS - self.PASS_COLS)
+
+    def pass_layout(self):
+        L = {"head": pygame.Rect(40, 130, 1840, 220), "track": pygame.Rect(40, 370, 1840, 560)}
+        h = L["head"]
+        L["ad"] = pygame.Rect(h.right - 1010, h.y + 120, 300, 76)
+        L["premium"] = pygame.Rect(h.right - 690, h.y + 120, 360, 76)
+        L["tier"] = pygame.Rect(h.right - 310, h.y + 120, 280, 76)
+        L["gems"] = pygame.Rect(h.right - 310, h.y + 28, 280, 60)
+        t = L["track"]
+        L["left"] = pygame.Rect(t.x + 170, t.centery - 40, 56, 80)
+        L["right"] = pygame.Rect(t.right - 60, t.centery - 40, 56, 80)
+        L["cols"] = []
+        start = int(round(getattr(self, "pass_scroll", 0.0)))
+        for i in range(self.PASS_COLS):
+            tier = start + i + 1
+            x = t.x + 236 + i * self.PASS_COL_W
+            L["cols"].append((tier, pygame.Rect(x, t.y + 20, self.PASS_COL_W - 16, 60),
+                              pygame.Rect(x, t.y + 96, self.PASS_COL_W - 16, 210),
+                              pygame.Rect(x, t.y + 324, self.PASS_COL_W - 16, 210)))
+        L["claim_all"] = pygame.Rect(40, 950, 380, 84)
+        L["locker"] = pygame.Rect(440, 950, 300, 84)
+        return L
+
+    def pass_click(self, pos):
+        L = self.pass_layout()
+        p = (pos.x, pos.y)
+        if L["ad"].collidepoint(p):
+            if ADS_ON:
+                self.watch_ad()
+            else:
+                self.enter_code()
+        elif L["premium"].collidepoint(p):
+            self.pass_buy_premium()
+        elif L["tier"].collidepoint(p):
+            self.pass_buy_tier()
+        elif L["left"].collidepoint(p):
+            self.pass_slide(-2)
+        elif L["right"].collidepoint(p):
+            self.pass_slide(2)
+        elif L["claim_all"].collidepoint(p):
+            self.pass_claim_all()
+        elif L["locker"].collidepoint(p):
+            self.open_locker("pfp", back="pass")
+        else:
+            for tier, _head, fr, pr in L["cols"]:
+                if fr.collidepoint(p):
+                    self.pass_box_click(tier, "f")
+                elif pr.collidepoint(p):
+                    self.pass_box_click(tier, "p")
+
+    def pass_box_click(self, tier, track):
+        if self.pass_can_claim(tier, track):
+            self.pass_claim(tier, track)
+            return
+        rew = PASS_REWARDS[tier][0 if track == "f" else 1]
+        if rew.get("card"):                               # the S1 card: have a look at it
+            card = self.cards.get(rew["card"])
+            if card is not None:
+                self.card_detail = card
+                self.card_tab = 0
+        elif track == "p" and not self.pass_state()["premium"]:
+            self.toast("PREMIUM PASS  -  %d GEMS" % PASS_PREMIUM_GEMS, (255, 226, 150), 2.4)
+
+    def s1_veil(self, size, alpha):
+        """A dark wash over a claimed / locked box (made once per size)."""
+        cache = self.__dict__.setdefault("_s1_veils", {})
+        hit = cache.get((size, alpha))
+        if hit is None:
+            hit = cache[(tuple(size), alpha)] = pygame.Surface(size, pygame.SRCALPHA)
+            hit.fill((6, 10, 26, alpha))
+        return hit
+
+    def draw_ad_button(self, w, b, mouse, A, waiting):
+        btn = self.home_button(b.size, b.collidepoint(mouse) and not waiting, top=(60, 200, 230), bottom=(20, 110, 170),
+                               lip=(8, 50, 90))
+        w.blit(btn, b.topleft)
+        self.home_text(w, "AD PLAYING..." if waiting else "WATCH AD  +%d" % GEMS_PER_AD, (b.centerx, b.centery - 10),
+                       28, WHITE, anchor="center", max_w=b.w - 20)
+        self.home_text(w, "%d / %d TODAY" % (A["n"], ADS_PER_DAY), (b.centerx, b.centery + 22), 20, (210, 240, 255),
+                       anchor="center", shadow=False)
+
+    # ---- codes (6 Nov): Hubi makes them on admin.html, the site checks and uses them up
+    def enter_code(self):
+        if getattr(self, "code_wait", None) is not None:
+            return False
+        win = js_window()
+        if win is None:
+            self.toast("CODES WORK ON THE BROWSER VERSION  -  SIGN IN ON THE SITE", (255, 200, 120), 3.4)
+            return False
+        try:
+            win.aswcCode()
+        except Exception:
+            self.toast("CODES NEED THE NEW SITE  -  REFRESH THE PAGE", (255, 200, 120), 3.0)
+            return False
+        self.code_wait = time.time()
+        return True
+
+    def poll_code(self):
+        if getattr(self, "code_wait", None) is None:
+            return
+        raw = ""
+        try:
+            raw = js_window().aswcCodePoll() or ""
+        except Exception:
+            raw = json.dumps({"ok": False, "why": "error"})
+        if not raw:
+            if time.time() - self.code_wait > 300:          # (the box was left open: give up quietly)
+                self.code_wait = None
+            return
+        self.code_wait = None
+        try:
+            res = json.loads(raw)
+        except Exception:
+            res = {"ok": False, "why": "error"}
+        self.code_done(res)
+
+    CODE_WHY = {"nocode": "THAT CODE DOESN'T EXIST", "expired": "THAT CODE HAS EXPIRED",
+                "full": "THAT CODE HAS BEEN USED UP", "used": "YOU'VE ALREADY USED THAT CODE",
+                "offline": "SIGN IN TO USE CODES", "empty": "", "cancel": ""}
+
+    def code_done(self, res):
+        if not res.get("ok"):
+            why = str(res.get("why") or "error")
+            msg = self.CODE_WHY.get(why, "COULDN'T CHECK THE CODE  -  TRY AGAIN")
+            if msg:
+                self.toast(msg, (255, 160, 150), 3.0)
+            return False
+        code = str(res.get("code") or "")[:20]
+        used = self.save.setdefault("codes", [])
+        if code in used:                                   # (the site stops this too)
+            self.toast("YOU'VE ALREADY USED THAT CODE", (255, 160, 150), 3.0)
+            return False
+        gift = res.get("gift") or {}
+        rew = {}
+        for key, hi in (("gems", 5000), ("coins", 100000)):
+            try:
+                v = max(0, min(hi, int(gift.get(key) or 0)))
+            except (TypeError, ValueError):
+                v = 0
+            if v:
+                rew[key] = v
+        try:
+            packs = max(0, min(10, int(gift.get("packs") or 0)))
+        except (TypeError, ValueError):
+            packs = 0
+        if packs:
+            rew["pack"] = packs
+        used.append(code)
+        del used[:-200]
+        self.give_reward(rew)
+        self.toast("CODE %s  -  %s" % (code, self.reward_words(rew) or "NOTHING ON IT"), (150, 255, 230), 3.4)
+        self.sfx.play("cheer", 0.6)
+        self.write_save()
+        if packs and self.quest_open_pack():
+            self.pack_reveal["back"] = "pass"
+        return True
+
+    def draw_gem(self, w, centre, r=16):
+        x, y = int(centre[0]), int(centre[1])
+        pts = [(x, y - r), (x + r, y - r // 3), (x, y + r), (x - r, y - r // 3)]
+        pygame.draw.polygon(w, (30, 200, 176), pts)
+        pygame.draw.polygon(w, (200, 255, 240), [(x, y - r), (x + r, y - r // 3), (x, y - r // 3)])
+        pygame.draw.polygon(w, (8, 90, 90), [(x - r, y - r // 3), (x, y + r), (x, y - r // 3)])
+        pygame.draw.polygon(w, (4, 30, 34), pts, 2)
+
+    def draw_pass_reward(self, w, rew, box, dim=False):
+        """The picture in a reward box, and the words under it."""
+        cx, cy = box.centerx, box.y + 82
+        words = ""
+        if rew.get("coins"):
+            pygame.draw.circle(w, (250, 200, 70), (cx, cy), 36)
+            pygame.draw.circle(w, (150, 100, 10), (cx, cy), 36, 5)
+            pygame.draw.circle(w, (255, 236, 160), (cx - 10, cy - 12), 8)
+            words = self.fmt(rew["coins"]) + " COINS"
+        elif rew.get("sp"):
+            self.draw_sp_icon(w, (cx, cy), 36)
+            words = self.fmt(rew["sp"]) + " SP"
+        elif rew.get("gems"):
+            self.draw_gem(w, (cx, cy), 38)
+            words = "%d GEMS" % rew["gems"]
+        elif rew.get("pack"):
+            for k in range(min(2, rew["pack"]) - 1, -1, -1):
+                r = pygame.Rect(0, 0, 66, 92)
+                r.center = (cx + k * 16, cy - k * 8)
+                pygame.draw.rect(w, (150, 30, 50), r, border_radius=8)
+                pygame.draw.rect(w, (255, 130, 140), r, 3, border_radius=8)
+                pygame.draw.circle(w, (255, 200, 120), r.center, 14)
+            words = "FREE PACK" if rew["pack"] == 1 else "%d PACKS" % rew["pack"]
+        elif rew.get("pfp"):                              # (the picture itself, owned or not)
+            img = self.pfp_img(rew["pfp"], 104)
+            w.blit(img, img.get_rect(center=(cx, cy)))
+            words = PFP_NAME.get(rew["pfp"], "")
+        elif rew.get("ball"):
+            img = self.ball_img(rew["ball"], 88)
+            w.blit(img, img.get_rect(center=(cx, cy)))
+            words = BALL_SKIN_NAME.get(rew["ball"], "") + " BALL"
+        elif rew.get("card"):
+            card = self.cards.get(rew["card"])
+            if card is not None:
+                cr = pygame.Rect(0, 0, 82, 120)
+                cr.center = (cx, box.y + 108)
+                self.blit_card(w, card, cr)
+            words = "SEASON 1 CARD"
+        self.home_text(w, words, (cx, box.bottom - 26), 22, (150, 160, 185) if dim else WHITE, anchor="center",
+                       shadow=False, max_w=box.w - 16)
+
+    def draw_pass(self, w):
+        self.poll_ad()
+        self.poll_code()
+        mouse = pygame.mouse.get_pos()
+        t = pygame.time.get_ticks() * 0.001
+        w.blit(self.home_bg(), (0, 0))
+        self.draw_glass(w, pygame.Rect(24, 20, WIDTH - 48, 92), radius=24, alpha=120)
+        self.draw_glass_back(w, mouse)
+        title = self.home_gold(SEASON["name"], 52)
+        w.blit(title, title.get_rect(midleft=(272, 66)))
+        self.draw_status(w, mouse)
+        L, P = self.pass_layout(), self.pass_state()
+        tier = self.pass_tier()
+        on = self.season_on()
+        # ---- the head: tier, progress, gems and the buttons
+        h = L["head"]
+        self.draw_glass(w, h, radius=30, alpha=150, edge=(120, 230, 210))
+        c = (h.x + 110, h.centery)
+        pygame.draw.circle(w, (8, 50, 56), c, 78)
+        pygame.draw.circle(w, (120, 230, 210), c, 78, 6)
+        into, need = self.pass_into()
+        if need:
+            pygame.draw.arc(w, (250, 214, 110), pygame.Rect(c[0] - 78, c[1] - 78, 156, 156),
+                            math.pi / 2 - math.tau * into / float(need), math.pi / 2, 8)
+        self.home_text(w, "TIER", (c[0], c[1] - 34), 22, (150, 255, 230), anchor="center", shadow=False)
+        self.home_text(w, str(tier), (c[0], c[1] + 12), 64, WHITE, anchor="center")
+        self.home_text(w, "%s  -  %s" % (SEASON["name"], SEASON["title"]), (h.x + 220, h.y + 52), 40, WHITE)
+        self.home_text(w, ("ENDS IN " + self.season_left()) if on else
+                       ("THE SEASON HAS ENDED  -  CLAIM WHAT YOU REACHED" if self.season_today() >= self.season_days()[1]
+                        else "STARTS SOON"), (h.x + 220, h.y + 100), 24, self.HOME_MUTED, shadow=False)
+        bar = pygame.Rect(h.x + 220, h.y + 140, 540, 24)
+        pygame.draw.rect(w, (6, 10, 28), bar, border_radius=12)
+        if need:
+            pygame.draw.rect(w, (60, 220, 190), (bar.x, bar.y, max(24, int(bar.w * into / float(need))), bar.h),
+                             border_radius=12)
+        self.home_text(w, ("%d / %d PASS XP TO TIER %d" % (into, need, tier + 1)) if need else "TOP TIER REACHED",
+                       (bar.x, bar.bottom + 24), 22, self.HOME_MUTED, shadow=False)
+        g = L["gems"]
+        self.draw_glass(w, g, radius=26, alpha=170, edge=(120, 230, 210))
+        self.draw_gem(w, (g.x + 34, g.centery), 17)
+        self.home_text(w, self.fmt(self.save.get("gems", 0)) + " GEMS", (g.x + 62, g.centery), 32, (200, 255, 240),
+                       shadow=False, max_w=g.w - 74)
+        A = self.ads_today()
+        waiting = getattr(self, "ad_wait", None) is not None or getattr(self, "code_wait", None) is not None
+        b = L["ad"]
+        if not ADS_ON:                                    # CODES (gems from codes Hubi posts)
+            btn = self.home_button(b.size, b.collidepoint(mouse) and not waiting, top=(60, 200, 230),
+                                   bottom=(20, 110, 170), lip=(8, 50, 90))
+            w.blit(btn, b.topleft)
+            self.home_text(w, "CHECKING..." if waiting else "ENTER A CODE", (b.centerx, b.centery - 10), 28, WHITE,
+                           anchor="center", max_w=b.w - 20)
+            self.home_text(w, "FROM HUBI'S VIDEOS + POSTS", (b.centerx, b.centery + 22), 18, (210, 240, 255),
+                           anchor="center", shadow=False, max_w=b.w - 20)
+        else:
+            self.draw_ad_button(w, b, mouse, A, waiting)
+        b = L["premium"]
+        if P["premium"]:
+            self.draw_glass(w, b, radius=22, alpha=170, edge=(255, 214, 110))
+            self.home_text(w, "PREMIUM PASS ACTIVE", b.center, 28, (255, 226, 150), anchor="center", shadow=False)
+        else:
+            btn = self.home_button(b.size, b.collidepoint(mouse), top=(250, 200, 80), bottom=(190, 120, 20),
+                                   lip=(90, 54, 6))
+            w.blit(btn, b.topleft)
+            self.home_text(w, "UNLOCK PREMIUM", (b.centerx, b.centery - 10), 30, (40, 24, 4), anchor="center",
+                           shadow=False)
+            self.home_text(w, "%d GEMS" % PASS_PREMIUM_GEMS, (b.centerx, b.centery + 22), 22, (70, 40, 6),
+                           anchor="center", shadow=False)
+        b = L["tier"]
+        if tier < PASS_TIERS:
+            hov = b.collidepoint(mouse)
+            self.draw_glass(w, b, radius=22, alpha=170 if hov else 130,
+                            edge=self.HOME_GOLD_EDGE if hov else (120, 230, 210))
+            self.home_text(w, "BUY A TIER", (b.centerx, b.centery - 10), 28, (255, 226, 150) if hov else WHITE,
+                           anchor="center", shadow=False)
+            self.home_text(w, "%d GEMS" % PASS_TIER_GEMS, (b.centerx, b.centery + 22), 20, self.HOME_MUTED,
+                           anchor="center", shadow=False)
+        # ---- the track
+        tr = L["track"]
+        self.draw_glass(w, tr, radius=30, alpha=140)
+        cols = L["cols"]
+        fr0, pr0 = cols[0][2], cols[0][3]
+        self.home_text(w, "FREE", (tr.x + 30, fr0.centery), 34, WHITE)
+        self.home_text(w, "PREMIUM", (tr.x + 30, pr0.centery - 14), 34, (255, 226, 150), max_w=150)
+        if not P["premium"]:
+            self.home_text(w, "%d GEMS" % PASS_PREMIUM_GEMS, (tr.x + 30, pr0.centery + 24), 22, self.HOME_MUTED,
+                           shadow=False)
+        for which, r, d in (("left", L["left"], -1), ("right", L["right"], 1)):
+            can = (getattr(self, "pass_scroll", 0) > 0) if d < 0 else (getattr(self, "pass_scroll", 0) <
+                                                                         PASS_TIERS - self.PASS_COLS)
+            hov = r.collidepoint(mouse) and can
+            col = (255, 226, 150) if hov else ((200, 214, 255) if can else (70, 80, 110))
+            x0, x1 = (r.right - 14, r.x + 14) if d < 0 else (r.x + 14, r.right - 14)
+            pygame.draw.polygon(w, col, [(x0, r.y + 14), (x1, r.centery), (x0, r.bottom - 14)])
+        for tnum, head, fr, pr in cols:
+            if tnum > PASS_TIERS:
+                continue
+            got = tnum <= tier
+            pygame.draw.rect(w, (60, 220, 190) if got else (40, 50, 84), head, border_radius=18)
+            if tnum == tier and tier < PASS_TIERS and need:
+                pygame.draw.rect(w, (250, 214, 110), (head.x, head.bottom - 8, int(head.w * into / float(need)), 8),
+                                 border_radius=4)
+            self.home_text(w, "TIER %d" % tnum, head.center, 28, (4, 34, 30) if got else (170, 180, 210),
+                           anchor="center", shadow=False)
+            for track, box in (("f", fr), ("p", pr)):
+                rew = PASS_REWARDS[tnum][0 if track == "f" else 1]
+                done = tnum in P["free" if track == "f" else "prem"]
+                ready = self.pass_can_claim(tnum, track)
+                locked = track == "p" and not P["premium"]
+                special = bool(rew.get("card") or rew.get("pfp") or rew.get("ball"))
+                glow = 0.5 + 0.5 * math.sin(t * 4.0 + tnum) if ready else 0.0
+                edge = ((110 + int(100 * glow), 255, 200) if ready else (255, 214, 110) if special and not done
+                        else (90, 110, 150))
+                self.draw_glass(w, box, radius=20, alpha=180 if not done else 90, edge=edge)
+                self.draw_pass_reward(w, rew, box, dim=done or not got)
+                if done:
+                    w.blit(self.s1_veil(box.size, 120), box.topleft)
+                    self.home_text(w, "CLAIMED", (box.centerx, box.y + 30), 22, (120, 220, 150), anchor="center",
+                                   shadow=False)
+                elif ready:
+                    self.home_text(w, "CLAIM", (box.centerx, box.y + 26), 26, (150, 255, 200), anchor="center")
+                elif locked:
+                    lk = (box.right - 26, box.y + 26)                 # a padlock
+                    pygame.draw.rect(w, (255, 214, 110), (lk[0] - 11, lk[1] - 2, 22, 16), border_radius=3)
+                    pygame.draw.arc(w, (255, 214, 110), (lk[0] - 8, lk[1] - 14, 16, 20), 0, math.pi, 3)
+        # ---- the bottom row
+        n = self.pass_claimable()
+        b = L["claim_all"]
+        if n:
+            btn = self.home_button(b.size, b.collidepoint(mouse))
+            w.blit(btn, b.topleft)
+            self.home_text(w, "CLAIM ALL  (%d)" % n, b.center, 32, WHITE, anchor="center")
+        else:
+            self.draw_glass(w, b, radius=22, alpha=110)
+            self.home_text(w, "NOTHING TO CLAIM", b.center, 26, (150, 160, 185), anchor="center", shadow=False)
+        b = L["locker"]
+        hov = b.collidepoint(mouse)
+        self.draw_glass(w, b, radius=22, alpha=170 if hov else 130, edge=self.HOME_GOLD_EDGE if hov else self.HOME_EDGE)
+        self.draw_pfp(w, self.save.get("pfp", "doll"), (b.x + 48, b.centery), 60)
+        self.home_text(w, "LOCKER", (b.x + 94, b.centery), 32, (255, 226, 150) if hov else WHITE, shadow=False)
+        self.home_text(w, "PASS XP:  WIN 100  -  DRAW 50  -  LOSS 20  -  +10 A GOAL", (770, 976), 22,
+                       self.HOME_MUTED, shadow=False)
+        self.home_text(w, "QUESTS +%d / +%d   -   FIRST WIN OF THE DAY +%d" % (PASS_XP_QUEST["daily"],
+                                                                            PASS_XP_QUEST["weekly"], PASS_XP_FIRST_WIN),
+                       (770, 1010), 22, self.HOME_MUTED, shadow=False)
+
+    # ---- the LOCKER: pick your picture and your ball
+    def open_locker(self, tab="pfp", back="pass"):
+        self.locker_tab = tab
+        self.locker_from = back
+        self.state = LOCKER
+        self.dragging = False
+
+    def locker_back(self):
+        if getattr(self, "locker_from", "pass") == "profile":
+            self.open_profile()
+        else:
+            self.open_pass()
+
+    def locker_items(self):
+        if getattr(self, "locker_tab", "pfp") == "ball":
+            return [k for k, _n in BALL_SKINS]
+        return [k for k, _n in PFPS]
+
+    def locker_layout(self):
+        L = {"tabs": [("pfp", pygame.Rect(40, 136, 300, 70)), ("ball", pygame.Rect(356, 136, 300, 70))],
+             "panel": pygame.Rect(40, 226, 1840, 820), "cells": []}
+        p = L["panel"]
+        for i, key in enumerate(self.locker_items()):
+            col, row = i % 8, i // 8
+            L["cells"].append((key, pygame.Rect(p.x + 34 + col * 224, p.y + 30 + row * 300, 204, 280)))
+        return L
+
+    def locker_click(self, pos):
+        L = self.locker_layout()
+        p = (pos.x, pos.y)
+        for tab, r in L["tabs"]:
+            if r.collidepoint(p):
+                self.locker_tab = tab
+                return
+        ball = getattr(self, "locker_tab", "pfp") == "ball"
+        for key, r in L["cells"]:
+            if r.collidepoint(p):
+                ok = self.equip_ball(key) if ball else self.equip_pfp(key)
+                if ok:
+                    self.sfx.play("tap", 0.6)
+                else:
+                    self.toast("LOCKED  -  %s" % self.pfp_how(key), (255, 200, 120), 2.4)
+                return
+
+    def draw_locker(self, w):
+        mouse = pygame.mouse.get_pos()
+        w.blit(self.home_bg(), (0, 0))
+        self.draw_glass(w, pygame.Rect(24, 20, WIDTH - 48, 92), radius=24, alpha=120)
+        self.draw_glass_back(w, mouse)
+        title = self.home_gold("LOCKER", 52)
+        w.blit(title, title.get_rect(midleft=(272, 66)))
+        self.draw_status(w, mouse)
+        L = self.locker_layout()
+        tab = getattr(self, "locker_tab", "pfp")
+        for key, r in L["tabs"]:
+            on = key == tab
+            hov = r.collidepoint(mouse)
+            self.draw_glass(w, r, radius=22, alpha=180 if on else 120,
+                            edge=self.HOME_GOLD_EDGE if (on or hov) else self.HOME_EDGE)
+            self.home_text(w, "PICTURES" if key == "pfp" else "BALLS", r.center, 30,
+                           (255, 226, 150) if on else (WHITE if hov else self.HOME_MUTED), anchor="center", shadow=False)
+        self.draw_glass(w, L["panel"], radius=30, alpha=140)
+        ball = tab == "ball"
+        mine = self.save.get("ball", "classic") if ball else self.save.get("pfp", "doll")
+        for key, r in L["cells"]:
+            owned = self.ball_owned(key) if ball else self.pfp_owned(key)
+            on = key == mine
+            hov = r.collidepoint(mouse)
+            self.draw_glass(w, r, radius=22, alpha=180 if owned else 100,
+                            edge=(120, 230, 210) if on else (self.HOME_GOLD_EDGE if hov and owned else (80, 96, 140)))
+            if ball:
+                img = self.ball_img(key, 132)
+                w.blit(img, img.get_rect(center=(r.centerx, r.y + 110)))
+            else:
+                img = self.pfp_img(key, 160)
+                w.blit(img, img.get_rect(center=(r.centerx, r.y + 104)))
+            if not owned:
+                w.blit(self.s1_veil(r.size, 150), r.topleft)
+            name = BALL_SKIN_NAME[key] if ball else PFP_NAME[key]
+            self.home_text(w, name, (r.centerx, r.bottom - 64), 24, WHITE if owned else (150, 160, 185),
+                           anchor="center", shadow=False, max_w=r.w - 16)
+            note = "EQUIPPED" if on else ("" if owned else self.pfp_how(key))
+            self.home_text(w, note, (r.centerx, r.bottom - 30), 20,
+                           (120, 230, 210) if on else (255, 200, 120) if key in PFP_OWNER else self.HOME_MUTED,
+                           anchor="center", shadow=False, max_w=r.w - 16)
+
     # ---- QUESTS (1 Nov): three dailies, three weeklies, the daily chest ----------------------
     def quest_day(self):
         return today_number() + int(getattr(self, "quest_shift", 0))      # (the checks move the calendar)
@@ -18295,7 +19748,7 @@ class Game:
     def give_reward(self, rew):
         S = self.save
         for key, save_key in (("coins", "coins"), ("tp", "training_coins"), ("pz", "puzzle_points"),
-                              ("ess", "essence"), ("pack", "free_packs")):
+                              ("ess", "essence"), ("pack", "free_packs"), ("gems", "gems")):
             if rew.get(key):
                 S[save_key] = int(S.get(save_key, 0) or 0) + int(rew[key])
 
@@ -18316,7 +19769,10 @@ class Game:
             if not self.quest_chest_ready():
                 return False
             Q["chest"] = True
-            rew, label = QUEST_CHEST, "DAILY CHEST"
+            rew, label = dict(QUEST_CHEST), "DAILY CHEST"
+            if random.random() < CHEST_GEM_CHANCE:          # the lucky day
+                rew["gems"] = CHEST_GEMS
+                label = "LUCKY CHEST"
         else:
             lst = Q.get(which) or []
             if i is None or not 0 <= i < len(lst) or not lst[i]["done"] or lst[i]["claimed"]:
@@ -18325,6 +19781,7 @@ class Game:
             rew, label = QUEST_DEF[lst[i]["k"]][4], QUEST_DEF[lst[i]["k"]][3]
             if which == "daily":
                 self.quest_event("daily")                      # the weekly "complete 10 daily quests"
+            self.pass_add_xp(PASS_XP_QUEST.get(which, 0), quiet=True)     # Season 1 (6 Nov)
         self.give_reward(rew)
         self.toast("%s  -  %s" % (label, self.reward_words(rew)), YELLOW, 3.0)
         self.sfx.play("cheer", 0.5)
@@ -19057,8 +20514,12 @@ class Game:
         return total
 
     def draw_exchange(self, w):
-        self.draw_purple_bg(w)
-        wash(w, (8, 4, 20, 110))
+        # the purple picture with its veil, made once (an alpha picture + a full wash a frame before)
+        if self.star_bg is not None:
+            w.blit(tinted(self.star_bg, (8, 4, 20, 110), "exchange"), (0, 0))
+        else:
+            self.draw_purple_bg(w)
+            wash(w, (8, 4, 20, 110))
         self.draw_back_button(w)
         self.draw_coins(w)
         self.draw_star_points(w)
@@ -20074,6 +21535,8 @@ class Game:
             self.open_profile()
         elif item == "QUESTS":
             self.open_quests()
+        elif item == "PASS":
+            self.open_pass()
         elif item == "QUIT":
             self.quit_requested = True
 
@@ -20404,7 +21867,7 @@ class Game:
     # built once and kept (background, glass, hero, gold titles, buttons); per frame it is a
     # handful of blits plus the twinkles, so the browser stays smooth.
     # ==================================================================================
-    HOME_TABS = ("HOME", "PLAY", "STORE", "TEAM", "QUESTS", "MAIL", "PROFILE")     # QUESTS: 1 Nov
+    HOME_TABS = ("HOME", "PLAY", "STORE", "TEAM", "PASS", "QUESTS", "MAIL", "PROFILE")  # PASS: 6 Nov
     HOME_EDGE = (150, 180, 255)
     HOME_GOLD_EDGE = (255, 210, 110)
     HOME_TINT = (16, 26, 64)
@@ -20414,7 +21877,7 @@ class Game:
 
     def home_layout(self):
         L = {"bar": pygame.Rect(24, 20, WIDTH - 48, 92),
-             "tabs": [(t, pygame.Rect(566 + i * 128, 34, 122, 64)) for i, t in enumerate(self.HOME_TABS)],
+             "tabs": [(t, pygame.Rect(560 + i * 112, 34, 108, 64)) for i, t in enumerate(self.HOME_TABS)],
              "level": pygame.Rect(1468, 34, 64, 64),
              "coins": pygame.Rect(1550, 40, 230, 52),
              "quit": pygame.Rect(1796, 34, 76, 64),
@@ -20439,12 +21902,23 @@ class Game:
 
     @staticmethod
     def home_vgrad(size, top, bottom):
-        g = pygame.Surface(size, pygame.SRCALPHA)
-        h = max(1, size[1] - 1)
-        for y in range(size[1]):
-            t = y / float(h)
-            g.fill(tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(4)), (0, y, size[0], 1))
-        return g
+        """A top-to-bottom gradient (a new surface: callers draw on it). The colours only change
+        down the way, so one pixel-wide column is worked out (and kept) and stretched across -
+        it used to be a fill per row of every glass panel the first time each one appeared."""
+        w, hh = max(1, int(size[0])), max(1, int(size[1]))
+        key = (hh, tuple(top), tuple(bottom))
+        col = _VGRAD.get(key)
+        if col is None:
+            col = pygame.Surface((1, hh), pygame.SRCALPHA)
+            h = max(1, hh - 1)
+            for y in range(hh):
+                t = y / float(h)
+                col.set_at((0, y), tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(4)))
+            if len(_VGRAD) > 200:
+                for k in list(_VGRAD)[:100]:
+                    del _VGRAD[k]
+            _VGRAD[key] = col
+        return pygame.transform.scale(col, (w, hh))
 
     @staticmethod
     def home_glow(size, colour, alpha):
@@ -20501,8 +21975,9 @@ class Game:
                               for _ in range(30)]
         return bg
 
-    def home_glass(self, rect, radius=26, alpha=150, edge=None, hot=False):
-        """A frosted panel: the background behind it, blurred and tinted, with a lit top edge."""
+    def home_glass(self, rect, radius=26, alpha=150, edge=None, hot=False, keep=True):
+        """A frosted panel: the background behind it, blurred and tinted, with a lit top edge.
+        keep=False: build it without keeping it (the browser keeps a cut-down copy instead)."""
         edge = edge or self.HOME_EDGE
         cache = self.__dict__.setdefault("_home_glass", {})
         key = (tuple(rect), radius, alpha, edge, hot)
@@ -20531,17 +22006,97 @@ class Game:
         pygame.draw.rect(out, (255, 255, 255, 40), r.inflate(-4, -4), 1, border_radius=max(1, radius - 2))
         if hot:
             pygame.draw.rect(out, self.HOME_GOLD_EDGE + (210,), r.inflate(6, 6), 3, border_radius=radius + 3)
+        if not keep:
+            return out
         if len(cache) > 60:
-            cache.clear()
+            for k in list(cache)[:30]:
+                del cache[k]
         cache[key] = out
         return out
 
-    def draw_glass(self, w, rect, **kw):
-        g = self.home_glass(rect, **kw)
-        if WEB_BUILD:                       # the browser: only the panel and the inner edge of its shadow
-            m = 14
-            w.blit(g, (rect.x - m, rect.y - m), pygame.Rect(40 - m, 40 - m, rect.w + 2 * m, rect.h + 2 * m))
+    # ---- still pages (5 Nov, third pass) ------------------------------------------------------
+    # Star Signings, the pack store and the shop are a full-screen background, a dozen glass
+    # panels and ten or so cards: 6-7 million pixels of blending a frame, while almost nothing
+    # on them moves. So the page is painted once into a kept picture - keyed on everything that
+    # can change what it shows, including which button the mouse is over - and after that each
+    # frame is one straight copy of it plus the few things that do move (the shine and sparks
+    # on the cards). Browser only: on the desktop the flags and pennants under the cards wave.
+    def still_page(self, w, key, paint, moving=None):
+        if not WEB_BUILD or key is None:
+            paint(w)                                   # (all in one go, moving parts and all)
             return
+        hit = getattr(self, "_still_page", None)
+        if hit is None or hit[0] != key:
+            self._card_pass = "still"
+            try:
+                paint(w)
+            finally:
+                self._card_pass = None
+            surf = hit[1] if hit is not None and hit[1].get_size() == w.get_size() else None
+            if surf is None:
+                surf = pygame.Surface(w.get_size()).convert()
+            surf.blit(w, (0, 0))
+            self._still_page = (key, surf)
+        else:
+            w.blit(hit[1], (0, 0))
+        if moving is not None:
+            self._card_pass = "moving"
+            try:
+                moving(w)
+            finally:
+                self._card_pass = None
+
+    def hover_key(self, *groups):
+        """Which of these rects the mouse is in (rects, lists of rects, (x, rect) pairs, dicts)."""
+        mouse = pygame.mouse.get_pos()
+        found, n = [], 0
+        stack = list(groups)
+        while stack:
+            item = stack.pop(0)
+            if isinstance(item, pygame.Rect):
+                if item.collidepoint(mouse):
+                    found.append(n)
+                n += 1
+            elif isinstance(item, dict):
+                if "id" not in item:                        # (a card is a dict too: not a layout)
+                    stack[0:0] = [item[k] for k in sorted(item, key=str)]
+            elif isinstance(item, (list, tuple)):
+                stack[0:0] = list(item)
+        return tuple(found)
+
+    def save_key(self):
+        """A cheap fingerprint of the save bits pages show: coins, SP, XP, owned, squad, watchlist."""
+        sv = self.save
+        return (sv.get("coins"), self.star_points(), sv.get("xp"), len(sv["owned"]), sum(sv["owned"].values()),
+                tuple(sv.get("squad", ())), tuple(sv.get("watchlist", ())), tuple(sv.get("lineup", ()) or ()))
+
+    # The browser keeps glass panels cut down to what it draws (the panel + 14 px of shadow), in
+    # a budget, oldest out first. The full cache emptied itself at 60 panels - about two screens'
+    # worth - so walking between tabs rebuilt every panel on every visit (5 Nov, third pass).
+    GLASS_BUDGET_PX = 16_000_000            # ~64 MB of panels (the old full-size cache of 60 held about as much)
+    GLASS_M = 14
+
+    def web_glass(self, rect, **kw):
+        cache = self.__dict__.setdefault("_web_glass", {})
+        key = (tuple(rect), tuple(sorted(kw.items())))
+        hit = cache.pop(key, None)
+        if hit is None:
+            m = self.GLASS_M
+            full = self.home_glass(rect, keep=False, **kw)
+            hit = full.subsurface(pygame.Rect(40 - m, 40 - m, rect.w + 2 * m, rect.h + 2 * m)).copy()
+            self._web_glass_px = getattr(self, "_web_glass_px", 0) + hit.get_width() * hit.get_height()
+            while cache and self._web_glass_px > self.GLASS_BUDGET_PX:
+                old = cache.pop(next(iter(cache)))
+                self._web_glass_px -= old.get_width() * old.get_height()
+        cache[key] = hit                     # (re-inserted: most recently used last)
+        return hit
+
+    def draw_glass(self, w, rect, **kw):
+        if WEB_BUILD:                       # the browser: only the panel and the inner edge of its shadow
+            m = self.GLASS_M
+            w.blit(self.web_glass(rect, **kw), (rect.x - m, rect.y - m))
+            return
+        g = self.home_glass(rect, **kw)
         w.blit(g, (rect.x - 40, rect.y - 40))
 
     def home_gold(self, text, height):
@@ -20733,17 +22288,20 @@ class Game:
                 w.blit(big, (fx, fy))
         # the top bar
         self.draw_glass(w, L["bar"], radius=24, alpha=120)
-        logo = self.home_gold("A SMALL WORLD CUP", 46)
-        w.blit(logo, logo.get_rect(midleft=(64, L["bar"].centery)))
+        logo = self.home_gold("A SMALL WORLD CUP", 40)                # (40, not 46: eight tabs since 6 Nov)
+        w.blit(logo, logo.get_rect(midleft=(56, L["bar"].centery)))
         for tab, r in L["tabs"]:
             on = tab == "HOME"
             hov = r.collidepoint(mouse) and not on
             col = (255, 226, 150) if on else (YELLOW if hov else self.HOME_MUTED)
+            if tab == "PASS":                               # Season 1's tab glows teal
+                col = (150, 255, 230) if not hov else YELLOW
             self.home_text(w, tab, r.center, 28, col, anchor="center", shadow=False, max_w=r.w - 4)
             if on:
                 pygame.draw.rect(w, (255, 206, 90), (r.centerx - 46, r.bottom - 6, 92, 6), border_radius=3)
-            if tab in ("MAIL", "QUESTS"):
-                n = self.unread_mail() if tab == "MAIL" else self.quest_claimable()
+            if tab in ("MAIL", "QUESTS", "PASS"):
+                n = self.unread_mail() if tab == "MAIL" else self.quest_claimable() if tab == "QUESTS" \
+                    else self.pass_claimable()
                 if n:
                     c = (r.right + 2, r.y + 6)
                     pygame.draw.circle(w, (236, 70, 70), c, 15)
@@ -21233,6 +22791,145 @@ class Game:
     def draw_style_buttons(self, surface):
         return
 
+    # ---- PlayStyles you can SEE (6 Nov): the trail, the marks, the players --------------------
+    def draw_ps_trail(self, w):
+        """The ball's trail while it's on a PlayStyle's path or riding at someone's feet: each one
+        has its own look (PS_LOOK), so you know which PlayStyle it was without reading a word."""
+        b = self.ball
+        trail = self.__dict__.setdefault("_ps_trail", [])
+        kind = b.fx_kind if b.fx_t > 0.0 else None
+        if kind is not None and not b.frozen:
+            if trail and trail[-1][1] != kind:
+                trail.clear()
+            trail.append((Vector2(b.pos), kind))
+            del trail[:-22]
+        elif trail:
+            del trail[:2]
+        if not trail:
+            return
+        col, style = PS_LOOK.get(trail[-1][1], ((255, 255, 255), "dots"))
+        n = len(trail)
+        pts = [p for p, _k in trail]
+        now = pygame.time.get_ticks() * 0.001
+        if style == "glue":                                   # stuck at his feet: a pulsing ring
+            r = int(b.radius + 14 + 5 * math.sin(now * 14.0))
+            pygame.draw.circle(w, INK, (int(b.pos.x), int(b.pos.y)), r + 4, 12)
+            pygame.draw.circle(w, col, (int(b.pos.x), int(b.pos.y)), r, 7)
+            return
+        if style == "fire":                                   # POWER SHOT: a fireball
+            for i, p in enumerate(pts):
+                t = (i + 1) / float(n)
+                r = int(b.radius * (0.45 + 1.15 * t) + 4 * math.sin(now * 30 + i))
+                c = lerp_rgb((150, 30, 10), (255, 230, 90), t)
+                pygame.draw.circle(w, c, (int(p.x), int(p.y + 6 * math.sin(i * 1.7))), max(3, r))
+            pygame.draw.circle(w, (255, 120, 30), (int(b.pos.x), int(b.pos.y)), b.radius + 26, 10)
+            pygame.draw.circle(w, (255, 230, 120), (int(b.pos.x), int(b.pos.y)), b.radius + 14, 6)
+            return
+        if style == "laser":                                  # a straight laser line, white-hot core
+            pygame.draw.line(w, INK, pts[0], pts[-1], 36)
+            pygame.draw.line(w, _shade(col, 0.6), pts[0], pts[-1], 28)
+            pygame.draw.line(w, col, pts[0], pts[-1], 18)
+            pygame.draw.line(w, (255, 255, 255), pts[max(0, n // 3)], pts[-1], 8)
+            return
+        if style == "ribbon":                                 # the curl: a ribbon that thickens
+            for i in range(1, n):
+                t = i / float(n)
+                pygame.draw.line(w, INK, pts[i - 1], pts[i], max(4, int(10 + 30 * t)))
+            for i in range(1, n):
+                t = i / float(n)
+                pygame.draw.line(w, lerp_rgb(_shade(col, 0.45), col, t), pts[i - 1], pts[i], max(3, int(6 + 26 * t)))
+            for i in range(1, n):
+                pygame.draw.line(w, (255, 255, 255), pts[i - 1], pts[i], max(2, int(9 * i / n)))
+            return
+        if style == "zig":                                    # the knuckleball: it shimmers
+            for i, p in enumerate(pts):
+                c = col if i % 2 else (255, 255, 255)
+                rr = max(3, int(7 + 16 * (i + 1) / n))
+                pygame.draw.circle(w, INK, (int(p.x), int(p.y)), rr + 4)
+                pygame.draw.circle(w, c, (int(p.x), int(p.y)), rr)
+            return
+        for i, p in enumerate(pts[::2]):                      # dots: the arc of a lob / a clearance
+            pygame.draw.circle(w, INK, (int(p.x), int(p.y)), 14)
+            pygame.draw.circle(w, col, (int(p.x), int(p.y)), 9)
+
+    def draw_ps_under(self, w, d):
+        """Behind a player: ACCELERATOR's speed lines."""
+        now = pygame.time.get_ticks() * 0.001
+        if getattr(d, "streak_t", 0.0) > 0.0 and d.vel.length_squared() > 4.0e4:   # ACCELERATOR
+            back = -d.vel.normalize()
+            side = Vector2(-back.y, back.x)
+            ln = min(260.0, d.vel.length() * 0.14) * min(1.0, d.streak_t * 2.0)
+            for k in (-2, -1, 0, 1, 2):
+                a = d.pos + side * (k * 22.0) + back * (40.0 + abs(k) * 10.0)
+                pygame.draw.line(w, INK, a, a + back * ln, 12)
+                pygame.draw.line(w, (255, 236, 140), a, a + back * ln, 6)
+
+    def draw_ps_world(self, w):
+        """The marks the PlayStyles leave, and what you can see on the players themselves."""
+        now = pygame.time.get_ticks() * 0.001
+        dolls = [self.player] + ([] if self.mode == "practice" else [self.cpu])
+        for d in dolls:
+            hp = d.to_world(d.HEAD_LOCAL) if hasattr(d, "HEAD_LOCAL") else d.pos + Vector2(0, -80)
+            if getattr(d, "daze_t", 0.0) > 0.0:                                     # stunned: stars
+                for k in range(3):
+                    a = now * 6.0 + k * math.tau / 3.0
+                    p = hp + Vector2(math.cos(a) * 46.0, -40.0 + math.sin(a) * 12.0)
+                    self.draw_ps_star(w, p, 19)
+        for fx in PS_FX:
+            k = clamp(fx["t"] / fx["T"], 0.0, 1.0)
+            p, col, r = fx["pos"], fx["col"], fx["r"]
+            ip = (int(p.x), int(p.y))
+            kind = fx["kind"]
+            if kind in ("ring", "boom", "shield"):            # a ring going out
+                rr = int(r * (0.3 + 0.9 * k))
+                wd = max(2, int(14 * (1.0 - k)))
+                pygame.draw.circle(w, INK, ip, rr + 2, wd + 4)
+                pygame.draw.circle(w, col, ip, rr, wd)
+                if kind == "boom" and k < 0.4:
+                    pygame.draw.circle(w, (255, 240, 180), ip, int(r * 0.5 * (1.0 - k)))
+                if kind == "shield" and k < 0.6:
+                    pygame.draw.arc(w, (255, 255, 255), pygame.Rect(ip[0] - rr, ip[1] - rr, rr * 2, rr * 2),
+                                    0.3, math.pi - 0.3, 6)
+            elif kind == "puff":                               # TRICKSTER: a puff of smoke
+                for j in range(7):
+                    a = j / 7.0 * math.tau
+                    q = (int(p.x + math.cos(a) * r * k), int(p.y + math.sin(a) * r * 0.6 * k))
+                    pygame.draw.circle(w, col, q, max(2, int(26 * (1.0 - k))))
+            elif kind == "cross":                              # CLINICAL: the target it locked on to
+                rr = int(r * (1.3 - 0.4 * min(1.0, k * 3)))
+                for c, wd in ((INK, 9), (col, 5)):
+                    pygame.draw.circle(w, c, ip, rr, wd)
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        pygame.draw.line(w, c, (ip[0] + dx * rr * 0.5, ip[1] + dy * rr * 0.5),
+                                         (ip[0] + dx * rr * 1.4, ip[1] + dy * rr * 1.4), wd)
+            elif kind == "eye":                                # ANTICIPATE: he read it
+                e = pygame.Rect(0, 0, int(r * 2), int(r))
+                e.center = ip
+                pygame.draw.ellipse(w, INK, e.inflate(8, 8))
+                pygame.draw.ellipse(w, (255, 255, 255), e)
+                pygame.draw.circle(w, col, ip, int(r * 0.36))
+                pygame.draw.circle(w, INK, ip, int(r * 0.16))
+            elif kind == "glove":                              # RUSH OUT: in his gloves
+                rr = int(r * (0.6 + 0.5 * k))
+                pygame.draw.circle(w, INK, ip, rr + 3, 7)
+                pygame.draw.circle(w, col, ip, rr, 4)
+            elif kind == "tri":                                # TIKI TAKA: the passing triangle
+                rr = r * (0.8 + 0.4 * k)
+                pts = [(p.x + math.cos(a) * rr, p.y + math.sin(a) * rr)
+                       for a in (-math.pi / 2, math.pi / 6, math.pi * 5 / 6)]
+                pygame.draw.polygon(w, INK, pts, 9)
+                pygame.draw.polygon(w, col, pts, 5)
+
+    @staticmethod
+    def draw_ps_star(w, p, r):
+        pts = []
+        for i in range(8):
+            a = i / 8.0 * math.tau - math.pi / 2
+            rr = r if i % 2 == 0 else r * 0.42
+            pts.append((p.x + math.cos(a) * rr, p.y + math.sin(a) * rr))
+        pygame.draw.polygon(w, INK, [(x + 2, y + 2) for x, y in pts])
+        pygame.draw.polygon(w, (255, 226, 80), pts)
+
     def ps_icon(self, key, size, level=2):
         """A PlayStyle's badge, hard pixels, cached: sprites/ps_<key>_p.png is purple (level 3),
         ps_<key>.png gold (level 2), ps_<key>_s.png silver (level 1)."""
@@ -21242,10 +22939,16 @@ class Game:
         if ck not in cache:
             raw = self.__dict__.setdefault("_ps_icon_raw", {})
             if name not in raw:
-                raw[name] = load_pixel(name, (32, 32), quiet=True, trim=False)
+                raw[name] = load_pixel(name, (64, 64), quiet=True, trim=False)   # (6 Nov: 64 px medallions)
                 if raw[name] is None and level != 2:         # no silver / purple file: use the gold one
-                    raw[name] = load_pixel("ps_%s" % key, (32, 32), quiet=True, trim=False)
-            cache[ck] = scaled(raw[name], (int(size), int(size))) if raw[name] is not None else None
+                    raw[name] = load_pixel("ps_%s" % key, (64, 64), quiet=True, trim=False)
+            img = raw[name]
+            if img is None:
+                cache[ck] = None
+            elif int(size) < img.get_width():          # smaller than drawn: shrink it smoothly, or
+                cache[ck] = pygame.transform.smoothscale(img, (int(size), int(size)))   # the symbol breaks up
+            else:
+                cache[ck] = scaled(img, (int(size), int(size)))
         return cache[ck]
 
     # ---- PlayStyles you can see (30 Oct) ---------------------------------------------------
@@ -21310,8 +23013,8 @@ class Game:
                 "chip": their_half and ctx.get("opp_off_line") and gap < 360.0,
                 "finesse": 450.0 < to_goal < 1600.0 and gap < 360.0,
                 "tikitaka": gap < 360.0 and b.vel.length() > 450.0,
-                "guardian": they_carry and gap < 420.0,
-                "anticipate": they_carry and gap < 420.0,
+                "guardian": bool(ctx.get("own_half")) and bool(ctx.get("near_opp")),
+                "anticipate": bool(ctx.get("own_half")) or getattr(doll, "read_t", 0.0) > 0.0,
                 "bruiser": ctx.get("near_opp") and speed > 400.0,
                 "deflector": getattr(doll, "is_gk", False) and ctx.get("own_third") and b.vel.length() > 500.0,
                 }.get(key, False)
@@ -21616,7 +23319,7 @@ def game_font(size):
 # caches the game would otherwise build the first time you walked into a screen, so by
 # the time it says READY the shop, the packs and your club are already drawn once.
 GAME_VERSION = "1.7"
-BUILD_TAG = "2026-11-06c"
+BUILD_TAG = "2026-11-06h"
 LOADING_TIPS = (
     "Drag away from your player and let go - he flies toward the mouse.",
     "You can throw again in mid-air. Chain them to stay up.",
@@ -21762,6 +23465,7 @@ async def boot(selftest=False):
              ("FLAGS", game.warm_flags),
              ("STAR SIGNINGS", lambda: (game.warm_stars_cards(), game.draw_stars(game.world))),
              ("THE WALKOUT", game.warm_walkout),
+             ("THE MENUS", game.warm_menus),
              ("THE PITCH", lambda: None)]
     for i, (name, work) in enumerate(steps):
         loader.label = name

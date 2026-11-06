@@ -15,10 +15,10 @@ import string
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAGES = ["index.html", "admin.html", "play.html", "check.html", "style.css"]
+PAGES = ["index.html", "admin.html", "play.html", "check.html", "style.css", "game/index.html"]
 SCRIPTS = ["app.js", "admin.js", "play.js", "net.js", "ranks.js", "words.js", "titles.js", "mail.js", "rng.js"]
 LOCAL_MODULES = SCRIPTS + ["firebase-config.js"]
-STAMPED = ["style.css"] + SCRIPTS
+STAMPED = ["style.css", "bridge.js"] + SCRIPTS   # bridge.js: the game page's hook (6 Nov)
 OLD = re.compile(r"\d{4}-\d{2}-\d{2}[a-z]")
 
 

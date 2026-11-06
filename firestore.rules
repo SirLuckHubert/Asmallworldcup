@@ -146,6 +146,29 @@ service cloud.firestore {
       allow delete: if signedIn();                 // handshake docs are throwaway
     }
 
+    // codes (6 Nov): the admin makes them, a player can look one up by name (not list them all)
+    // and use it once - the claim and the +1 on "used" have to go in together
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used'])
+        && request.resource.data.used == resource.data.get('used', 0) + 1
+        && request.resource.data.used <= resource.data.max
+        && (!('expires' in resource.data) || request.time.toMillis() < resource.data.expires)
+        && existsAfter(/databases/$(database)/documents/codes/$(code)/claims/$(request.auth.uid)));
+
+      match /claims/{uid} {
+        allow get: if isSelf(uid) || isAdmin();
+        allow list, update, delete: if isAdmin();
+        allow create: if isSelf(uid)
+          && request.resource.data.keys().hasOnly(['at', 'name'])
+          && playerDoc(uid).get('banned', false) == false
+          && getAfter(/databases/$(database)/documents/codes/$(code)).data.used
+             == get(/databases/$(database)/documents/codes/$(code)).data.get('used', 0) + 1;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2026-11-06c">
+<link rel="stylesheet" href="style.css?v=2026-11-06h">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23000'/><rect x='9' y='12' width='14' height='10' rx='2' fill='%23fff'/></svg>">
 </head>
 <body>
@@ -118,6 +118,8 @@
         <button class="btn btn-sm" id="giveCoins">Add coins</button>
         <label class="field">Star points <input type="number" id="sp" value="1000" style="width:130px"></label>
         <button class="btn btn-sm" id="giveSp">Add star points</button>
+        <label class="field">Gems <input type="number" id="gems" value="100" style="width:110px"></label>
+        <button class="btn btn-sm" id="giveGems">Add gems</button>
       </div>
 
       <div style="margin-bottom:18px; border-top:1px solid var(--edge); padding-top:16px">
@@ -143,6 +145,7 @@
           </label>
           <label class="field">Coins <input type="number" id="mailCoins" value="0" style="width:120px"></label>
           <label class="field">Star points <input type="number" id="mailSp" value="0" style="width:130px"></label>
+          <label class="field">Gems <input type="number" id="mailGems" value="0" style="width:110px"></label>
           <button class="btn btn-sm btn-primary" id="mailSend">Send</button>
         </div>
       </div>
@@ -272,10 +275,28 @@
       <div class="row" style="align-items:flex-end; margin-top:10px">
         <label class="field">Coins <input type="number" id="allCoins" value="0" style="width:120px"></label>
         <label class="field">Star points <input type="number" id="allSp" value="0" style="width:130px"></label>
+        <label class="field">Gems <input type="number" id="allGems" value="0" style="width:110px"></label>
         <button class="btn btn-primary btn-sm" id="allSend">Send to everyone</button>
         <button class="btn btn-sm btn-danger" id="allClear">Clear the list</button>
       </div>
       <div id="allList" style="margin-top:20px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Codes</h2>
+      <p class="muted" style="margin:0 0 12px">Make a code, say it in a video or post it anywhere. Players type it
+         on the PASS screen (CODES) - each account can use a code once, and it stops at the number of uses
+         you set. Letters and numbers only.</p>
+      <div class="row" style="align-items:flex-end">
+        <label class="field">Code <input type="text" id="codeName" placeholder="KICKOFF" maxlength="20" style="width:170px; text-transform:uppercase"></label>
+        <label class="field">Gems <input type="number" id="codeGems" value="50" style="width:100px"></label>
+        <label class="field">Coins <input type="number" id="codeCoins" value="0" style="width:110px"></label>
+        <label class="field">Packs <input type="number" id="codePacks" value="0" style="width:90px"></label>
+        <label class="field">Uses <input type="number" id="codeMax" value="100" style="width:100px"></label>
+        <label class="field">Days <input type="number" id="codeDays" value="7" style="width:90px"></label>
+        <button class="btn btn-primary btn-sm" id="codeMake">Make code</button>
+      </div>
+      <div id="codeList" style="margin-top:18px"></div>
     </div>
 
     <div class="panel">
@@ -298,6 +319,6 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="admin.js?v=2026-11-06c"></script>
+<script type="module" src="admin.js?v=2026-11-06h"></script>
 </body>
 </html>

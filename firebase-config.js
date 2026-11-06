@@ -22,5 +22,13 @@ export const firebaseConfig = {
 // This is also written into firestore.rules - change it in BOTH places.
 export const ADMIN_EMAIL = "24hbielak@stjosephsrush.com";
 
+// Rewarded ads for GEMS (6 Nov, Season 1). Google's "H5 Games Ads" (the Ad Placement API) needs an
+// AdSense account with the site approved for H5 games. Put the publisher id here once it is
+// (AdSense -> Account -> Account information, it looks like "ca-pub-1234567890123456").
+// Until then the game's WATCH AD button says ads aren't set up yet - nothing else changes.
+export const ADS_CLIENT = "";
+// true = Google's test ads (they pay nothing, they're for checking it works). false when you go live.
+export const ADS_TEST = true;
+
 // Where the pygbag build lives, relative to this page (build_web.sh puts it here).
 export const GAME_PATH = "game/index.html";

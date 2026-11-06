@@ -1,4 +1,4 @@
-// Mail: a message from you to a player, with coins, star points or players attached.
+// Mail: a message from you to a player, with coins, star points, gems or players attached.
 //
 // Mail lives inside the save file, which is the one thing the game and the site already
 // share. The admin console writes a message straight into a player's save; a message for
@@ -32,9 +32,12 @@ export function tidyGift(gift) {
   if (!gift) return null;
   const coins = Math.max(0, Math.floor(Number(gift.coins) || 0));
   const sp = Math.max(0, Math.floor(Number(gift.sp) || 0));
+  const gems = Math.max(0, Math.floor(Number(gift.gems) || 0));      // 6 Nov: Season 1's currency
   const cards = (gift.cards || []).filter(Boolean).slice(0, 6);
-  if (!coins && !sp && !cards.length) return null;
-  return { coins, sp, cards };
+  if (!coins && !sp && !gems && !cards.length) return null;
+  const out = { coins, sp, cards };
+  if (gems) out.gems = gems;
+  return out;
 }
 
 export function giftWords(gift, cardName) {
@@ -43,6 +46,7 @@ export function giftWords(gift, cardName) {
   const bits = [];
   if (g.coins) bits.push(g.coins + " coins");
   if (g.sp) bits.push(g.sp + " star points");
+  if (g.gems) bits.push(g.gems + " gems");
   for (const id of g.cards) bits.push(cardName ? cardName(id) : id);
   return bits.join(" + ");
 }

@@ -9,11 +9,11 @@ import {
   getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc,
   serverTimestamp, query, orderBy, limit, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-11-06c";
-import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-11-06c";
-import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-11-06c";
-import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06c";
-import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-11-06c";
+import { firebaseConfig, ADMIN_EMAIL } from "./firebase-config.js?v=2026-11-06h";
+import { rankOf, rankLine, START_RP } from "./ranks.js?v=2026-11-06h";
+import { tidyUsername, usernameKey, checkText } from "./words.js?v=2026-11-06h";
+import { TITLES, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06h";
+import { makeMail, addMail, tidyGift, giftWords } from "./mail.js?v=2026-11-06h";
 
 const $ = (id) => document.getElementById(id);
 const fb = initializeApp(firebaseConfig);
@@ -55,7 +55,67 @@ onAuthStateChanged(auth, async (user) => {
   await loadBroadcast();
   loadAllScout();
   await loadChat();
+  loadCodes();
 });
+
+// ---------------------------------------------------------------- codes (6 Nov)
+const tidyCode = (s) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20);
+
+async function loadCodes() {
+  const box = $("codeList");
+  try {
+    const snap = await getDocs(collection(db, "codes"));
+    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.at || 0) - (a.at || 0));
+    box.innerHTML = rows.length ? "" : '<p class="muted">No codes yet.</p>';
+    for (const c of rows) {
+      const left = c.expires ? Math.ceil((c.expires - Date.now()) / 86400000) : null;
+      const gift = [c.gems ? c.gems + " gems" : "", c.coins ? c.coins + " coins" : "",
+                    c.packs ? c.packs + (c.packs === 1 ? " pack" : " packs") : ""].filter(Boolean).join(", ");
+      const row = document.createElement("div");
+      row.className = "row";
+      row.style.cssText = "align-items:center; padding:8px 0; border-top:1px solid rgba(255,255,255,.08)";
+      const dead = (left !== null && left <= 0) || (c.used || 0) >= (c.max || 0);
+      row.innerHTML = `<b style="min-width:150px; letter-spacing:1px">${c.id}</b>
+        <span style="flex:1 1 200px">${gift || "nothing"}</span>
+        <span class="muted">${c.used || 0} / ${c.max || 0} used</span>
+        <span class="muted">${left === null ? "" : left > 0 ? left + (left === 1 ? " day left" : " days left") : "expired"}</span>
+        ${dead ? '<span class="muted">(finished)</span>' : ""}`;
+      const del = document.createElement("button");
+      del.className = "btn btn-sm btn-danger";
+      del.textContent = "Delete";
+      del.onclick = async () => {
+        try { await deleteDoc(doc(db, "codes", c.id)); toast("Deleted " + c.id); loadCodes(); }
+        catch (err) { toast("Delete failed: " + (err.code || err), 5000); }
+      };
+      row.appendChild(del);
+      box.appendChild(row);
+    }
+  } catch (err) {
+    box.innerHTML = '<p class="muted">Couldn\'t load codes (' + (err.code || err) +
+      ') - publish the new firestore.rules.</p>';
+  }
+}
+
+$("codeMake").onclick = async () => {
+  const id = tidyCode($("codeName").value);
+  if (id.length < 3) return toast("A code needs 3+ letters or numbers", 3500);
+  const n = (k, hi) => Math.max(0, Math.min(hi, Math.floor(Number($(k).value) || 0)));
+  const data = { gems: n("codeGems", 5000), coins: n("codeCoins", 100000), packs: n("codePacks", 10),
+                 max: Math.max(1, n("codeMax", 100000)), used: 0, at: Date.now() };
+  const days = n("codeDays", 3650);
+  if (days) data.expires = Date.now() + days * 86400000;
+  if (!data.gems && !data.coins && !data.packs) return toast("Give the code a reward", 3000);
+  try {
+    if ((await getDoc(doc(db, "codes", id))).exists()) return toast(id + " already exists", 3500);
+    await setDoc(doc(db, "codes", id), data);
+    toast("Made " + id);
+    $("codeName").value = "";
+    loadCodes();
+  } catch (err) {
+    toast("Write failed: " + (err.code || err) + " - publish the new firestore.rules", 6000);
+  }
+};
 
 // ---------------------------------------------------------------- cards
 async function loadCards() {
@@ -204,7 +264,7 @@ $("mailSend").onclick = async () => {
   const cardId = $("mailCard").value.trim() ? cardIdFrom($("mailCard").value) : null;
   if ($("mailCard").value.trim() && !cardId) return toast("Pick a card from the list", 3500);
   const gift = tidyGift({
-    coins: $("mailCoins").value, sp: $("mailSp").value, cards: cardId ? [cardId] : [],
+    coins: $("mailCoins").value, sp: $("mailSp").value, gems: $("mailGems").value, cards: cardId ? [cardId] : [],
   });
   const msg = makeMail({ from: $("mailFrom").value, subject, body, gift });
   await patchSave((save) => addMail(save, msg),
@@ -214,6 +274,7 @@ $("mailSend").onclick = async () => {
   $("mailCard").value = "";
   $("mailCoins").value = "0";
   $("mailSp").value = "0";
+  $("mailGems").value = "0";
   const p = players.find((x) => x.uid === current);
   if (p) mailCountLine(p);
 };
@@ -279,7 +340,7 @@ $("allSend").onclick = () => {
   const subject = $("allSubject").value.trim();
   const body = $("allBody").value.trim();
   if (!subject && !body) return toast("Write something first", 3000);
-  const gift = tidyGift({ coins: $("allCoins").value, sp: $("allSp").value, cards: [] });
+  const gift = tidyGift({ coins: $("allCoins").value, sp: $("allSp").value, gems: $("allGems").value, cards: [] });
   const msg = makeMail({ from: $("allFrom").value, subject, body, gift });
   delete msg.read;
   delete msg.claimed;
@@ -288,6 +349,7 @@ $("allSend").onclick = () => {
   $("allBody").value = "";
   $("allCoins").value = "0";
   $("allSp").value = "0";
+  $("allGems").value = "0";
 };
 
 $("allClear").onclick = () => {
@@ -407,6 +469,12 @@ $("giveSp").onclick = () => {
   const n = Number($("sp").value || 0);
   patchSave((save) => { save.star_points = Math.max(0, Number(save.star_points || 0) + n); },
             `${n >= 0 ? "+" : ""}${n} star points`);
+};
+
+$("giveGems").onclick = () => {                     // 6 Nov: Season 1's currency
+  const n = Number($("gems").value || 0);
+  patchSave((save) => { save.gems = Math.max(0, Number(save.gems || 0) + n); },
+            `${n >= 0 ? "+" : ""}${n} gems`);
 };
 
 $("ban").onclick = () => setBan(true);

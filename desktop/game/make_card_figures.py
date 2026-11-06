@@ -1,7 +1,7 @@
 """Redraw the posed card players into the sprites folder: the seventeen draft cards
 (cards17.py), the World's Game players (cards_wg.py), Champion Draft A (cards_champ.py) and
 (30 Oct) the Limit Breakers (cards_lb.py), (31 Oct) Club Packs 2 and 3, pools A and B, and
-(31 Oct) Limit Breakers Draft B (cards_lb2.py), (1 Nov) the 41 Star Signings (cards_star.py)
+(31 Oct) Limit Breakers Draft B (cards_lb2.py), (1 Nov) the 41 Star Signings (cards_star.py), (6 Nov) the Season 1 card (cards_s1.py)
 (cards_club.py) - every figure built on cardfig's body.
 
     python3 make_card_figures.py [sprites_folder] [name ...]
@@ -22,6 +22,7 @@ import cards_champ
 import cards_club
 import cards_lb
 import cards_lb2
+import cards_s1
 import cards_sig
 import cards_star
 import cards_wg
@@ -35,6 +36,7 @@ FIGS.update(cards_club.FIGS)
 FIGS.update(cards_lb2.FIGS)              # (31 Oct: Limit Breakers Draft B)
 FIGS.update(cards_star.FIGS)             # (1 Nov: all 41 Star Signings)
 FIGS.update(cards_sig.FIGS)              # (1 Nov: Mario Kempes, the second Game Box)
+FIGS.update(cards_s1.FIGS)               # (6 Nov: Messi, the Season 1 pass card)
 
 
 def one(args):

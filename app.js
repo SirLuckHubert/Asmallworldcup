@@ -9,12 +9,12 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp, collection, getDocs,
   addDoc, query, orderBy, limit, deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06c";
-import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06c";
-import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06c";
-import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06c";
-import { mergeIntoSaveText } from "./mail.js?v=2026-11-06c";
-import { rngBoot, rngSignedIn, rngSignedOut, rngUsername, rngSiteGifts } from "./rng.js?v=2026-11-06c";
+import { firebaseConfig, ADMIN_EMAIL, GAME_PATH } from "./firebase-config.js?v=2026-11-06h";
+import { checkText, tidyUsername, usernameKey } from "./words.js?v=2026-11-06h";
+import { rankOf, rankLine, badgeSvg, holdsTop10, TIERS, TOP10, TOP10_MIN, START_RP } from "./ranks.js?v=2026-11-06h";
+import { TITLES, TITLE_BY_ID, ownedTitles, wornTitle, titleChip } from "./titles.js?v=2026-11-06h";
+import { mergeIntoSaveText } from "./mail.js?v=2026-11-06h";
+import { rngBoot, rngSignedIn, rngSignedOut, rngUsername, rngSiteGifts } from "./rng.js?v=2026-11-06h";
 
 const SAVE_KEY = "aswc_save";          // the game reads/writes this in localStorage
 const SAVE_DEBOUNCE = 2000;            // ms of quiet before a save goes to the cloud
@@ -50,6 +50,31 @@ function revealWatch(el) {
 }
 
 const DEFAULT_NOTES = [
+  {
+    date: "2026-11-06",
+    title: "Codes, and gems are rare now",
+    body: "The pass has an ENTER A CODE button. Codes turn up in Hubi's videos and posts - type one in for gems, coins or packs. Each account can use a code once, and they run out.\n" +
+          "Gems are meant to be rare: weekly quests pay 25 each, the daily chest has a 1-in-20 lucky drop of 10, the free pass track has 200, and codes. No ads.",
+  },
+  {
+    date: "2026-11-06",
+    title: "SEASON 1 is here: the pass, gems and profile pictures",
+    body: "A new PASS tab: fifty tiers over six weeks, a free track and a premium track. Every match you play fills it (the same XP as your level, plus 150 for the first win of the day), and so do quests. The free track has coins, Star Points, packs, gems, a whistle picture, the Ember ball and the Season 1 badge. Premium has twice the coins and Star Points, more packs, nine profile pictures, five ball skins - and at tier 50, the exclusive Season 1 Messi card.\n" +
+          "Premium is 600 GEMS. Gems are the new currency: watch a short ad from the pass (30 gems, ten a day, in the browser game), pick them up on the free track, or find them in your mail. A tier you're stuck on can be bought for 120.\n" +
+          "Your picture is in the new LOCKER - tap your picture on the profile, or LOCKER on the pass - next to your ball skins. The ball you pick is the one in your matches.",
+  },
+  {
+    date: "2026-11-06",
+    title: "PlayStyles you can SEE",
+    body: "The shooting PlayStyles now fly a shape you can watch: Finesse goes out low and curls up into the top corner, Power Shot is a fireball straight through anyone in the way, Clinical locks a crosshair on the far corner, Chip soars up and drops in under the bar, Penalty Expert is a wobbling knuckleball, Whipped Cross a dipper, Bullet Pass a flat laser, a Precision Header a laser into the corner, and Deflector parries it far upfield.\n" +
+          "The rest are passive edges on what YOU do: Anticipate is quicker off the mark in your own half and just after a touch, Rapid is quicker with the ball, Trickster turns sharper with him close, Guardian and Bruiser win more duels, Relentless is harder and sooner when you're behind, Tiki Taka has a cleaner first touch, and Rush Out keepers come off their line faster. New medallion badges, in the colours of their trails.",
+  },
+  {
+    date: "2026-11-06",
+    title: "Star Signings, the pack store and new tabs: smooth",
+    body: "Star Signings and the pack store are now painted once and then copied, with only the shine on the cards moving — they used to blend six or seven million pixels every frame. Glass panels are kept between tabs instead of being rebuilt every visit, and the home screen, profile, quests, Archive, Game Box, Essence shop, exchange and Freeplay are built on the loading screen.\n" +
+          "The end of a pack opening is lighter too: the card, its flag and the stadium are ready before you tap, the landing pop reuses four sizes, and there's a little less confetti in the browser.",
+  },
   {
     date: "2026-11-06",
     title: "Online 1v1 is fair now",

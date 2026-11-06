@@ -119,6 +119,28 @@
     up({ type: "aswc-result", result: String(json) });
   };
 
+  // ---- rewarded ads (6 Nov): the page shows the ad, the game polls for how it went
+  var adResult = "";
+  var owner = false;
+  window.aswcAd = function (what) {
+    up({ type: "aswc-ad", what: String(what || "gems") });
+  };
+  window.aswcAdPoll = function () {
+    var r = adResult;
+    adResult = "";
+    return r;
+  };
+  // ---- codes (6 Nov): the page asks for the code and checks it, the game polls for the answer
+  var codeResult = "";
+  window.aswcCode = function () { up({ type: "aswc-code" }); };
+  window.aswcCodePoll = function () {
+    var r = codeResult;
+    codeResult = "";
+    return r;
+  };
+  // ---- the owner (6 Nov): true when the signed-in account is the site's admin
+  window.aswcOwner = function () { return owner; };
+
   window.addEventListener("message", function (e) {
     if (e.origin !== location.origin || !e.data) return;
     var d = e.data;
@@ -129,6 +151,13 @@
       if (queue.length > 120) queue.splice(0, queue.length - 120);
     } else if (d.type === "aswc-netstate") {
       netUp = !!d.up;
+    } else if (d.type === "aswc-adresult") {
+      adResult = JSON.stringify({ ok: !!d.ok, why: String(d.why || "") });
+    } else if (d.type === "aswc-coderesult") {
+      codeResult = JSON.stringify({ ok: !!d.ok, why: String(d.why || ""), code: String(d.code || ""),
+                                    gift: d.gift || {} });
+    } else if (d.type === "aswc-owner") {
+      owner = !!d.owner;
     }
   });
 
