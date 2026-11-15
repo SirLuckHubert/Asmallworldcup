@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin console — aSmallWorldCup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800;1,900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=2026-11-06h">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23000'/><rect x='9' y='12' width='14' height='10' rx='2' fill='%23fff'/></svg>">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="ball" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" fill="#ffffff"/>
+        <path d="M16 6l6 4.4-2.3 7.1h-7.4L10 10.4z" fill="#000000"/>
+      </svg>
+      <span>aSmall<em>WorldCup</em></span>
+    </a>
+    <div class="nav-links" id="navLinks" style="margin-left:6px">
+      <a href="index.html">Back to the game</a>
+    </div>
+    <div class="nav-right">
+      <span class="chip" id="accountChip" hidden>
+        <img id="avatar" alt="" referrerpolicy="no-referrer">
+        <span id="uname">…</span>
+        <span class="tag">Admin</span>
+      </span>
+      <button class="btn btn-sm" id="signout" hidden>Sign out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap admin-shell">
+
+  <!-- signed out / wrong account -->
+  <section id="gate" hidden>
+    <div class="panel" style="text-align:center; padding:60px 26px">
+      <span class="eyebrow" style="justify-content:center; display:inline-flex">Restricted</span>
+      <h2 class="h2" style="font-size:30px">Admin console</h2>
+      <p class="muted" id="gateMsg" style="max-width:46ch; margin:12px auto 24px">
+        Sign in with the admin account to see every player's save, hand out cards and post patch notes.
+      </p>
+      <button class="btn btn-google btn-lg" id="signin">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7 5.4c4.1-3.8 6.5-9.4 6.5-16.8z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.4-.8-2.9-.8-4.7s.3-3.3.8-4.7l-7.8-6.1C.9 16.3 0 20 0 24s.9 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.6l-7-5.4c-2 1.3-4.6 2.1-8.3 2.1-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Sign in with Google
+      </button>
+      <p class="muted" id="wrongAccount" hidden style="margin-top:18px">
+        That account isn't the admin. <a href="#" id="switch">Use another account</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- the console -->
+  <section id="app" hidden>
+
+    <div class="panel">
+      <h2>Players <span class="muted" id="count" style="text-transform:none; letter-spacing:0; font-weight:500"></span></h2>
+      <div class="row" style="margin-bottom:14px">
+        <input type="search" id="search" placeholder="Search name or email" style="min-width:260px; flex:1 1 260px">
+        <button class="btn btn-sm" id="refresh">Refresh</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="players">
+          <thead><tr>
+            <th>Player</th><th>Email</th><th class="num">Level</th><th class="num">Coins</th>
+            <th class="num">Cards</th><th>Last seen</th><th></th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" id="editor" hidden>
+      <h2 id="editTitle">Player</h2>
+
+      <div class="row" style="margin-bottom:18px">
+        <button class="btn btn-sm btn-danger" id="ban">Ban</button>
+        <button class="btn btn-sm" id="unban" hidden>Unban</button>
+        <button class="btn btn-sm btn-danger" id="mute">Mute chat</button>
+        <button class="btn btn-sm" id="unmute" hidden>Unmute</button>
+        <input type="text" id="banReason" placeholder="Reason (they see this)" style="min-width:240px; flex:1 1 240px">
+      </div>
+
+      <div class="row" style="align-items:flex-end; margin-bottom:18px">
+        <label class="field" style="flex:1 1 200px">Username
+          <input type="text" id="editName" maxlength="12" placeholder="12 characters max">
+        </label>
+        <button class="btn btn-sm" id="saveName">Set name</button>
+        <label class="field">Rank points <input type="number" id="editRp" value="150" style="width:130px"></label>
+        <button class="btn btn-sm" id="saveRp">Set RP</button>
+        <span class="muted" id="rankNow"></span>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+          <strong>Titles</strong>
+          <span class="muted" id="titleWorn"></span>
+        </div>
+        <p class="muted" style="margin:0 0 10px; font-size:13.5px">
+          Click one to give it, click it again to take it back. The greyed ones unlock themselves
+          from the player's record — you can't hand those out.</p>
+        <div class="title-grid" id="adminTitles"></div>
+      </div>
+
+      <div class="row" style="margin-bottom:18px; align-items:flex-end">
+        <label class="field" style="flex:1 1 260px">Give a card
+          <input list="cardList" id="cardPick" placeholder="Pedro Neto">
+        </label>
+        <datalist id="cardList"></datalist>
+<datalist id="scoutList"></datalist>
+        <button class="btn btn-sm btn-gold" id="giveCard">Give card</button>
+        <label class="field">Coins <input type="number" id="coins" value="1000" style="width:130px"></label>
+        <button class="btn btn-sm" id="giveCoins">Add coins</button>
+        <label class="field">Star points <input type="number" id="sp" value="1000" style="width:130px"></label>
+        <button class="btn btn-sm" id="giveSp">Add star points</button>
+        <label class="field">Gems <input type="number" id="gems" value="100" style="width:110px"></label>
+        <button class="btn btn-sm" id="giveGems">Add gems</button>
+      </div>
+
+      <div style="margin-bottom:18px; border-top:1px solid var(--edge); padding-top:16px">
+        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:8px">
+          <strong>Send mail to this player</strong>
+          <span class="muted" id="mailCount"></span>
+        </div>
+        <p class="muted" style="margin:0 0 10px; font-size:13.5px">
+          It lands in their inbox in the game. Anything you attach here is theirs to claim —
+          it doesn't go into their save until they open the message.</p>
+        <div class="row" style="align-items:flex-end; margin-bottom:10px">
+          <label class="field" style="flex:1 1 280px">Subject
+            <input type="text" id="mailSubject" placeholder="Here's a player" maxlength="60">
+          </label>
+          <label class="field">From <input type="text" id="mailFrom" value="HUBI" maxlength="24" style="width:150px"></label>
+        </div>
+        <label class="field">Message
+          <textarea id="mailBody" style="min-height:90px" placeholder="Thanks for playing — here's something for you."></textarea>
+        </label>
+        <div class="row" style="align-items:flex-end; margin-top:10px">
+          <label class="field" style="flex:1 1 240px">Attach a card
+            <input list="cardList" id="mailCard" placeholder="none">
+          </label>
+          <label class="field">Coins <input type="number" id="mailCoins" value="0" style="width:120px"></label>
+          <label class="field">Star points <input type="number" id="mailSp" value="0" style="width:130px"></label>
+          <label class="field">Gems <input type="number" id="mailGems" value="0" style="width:110px"></label>
+          <button class="btn btn-sm btn-primary" id="mailSend">Send</button>
+        </div>
+      </div>
+
+      <!-- Scout RNG (6 Nov): players, fragments and potions straight into their roll game -->
+      <div class="card" style="margin:0 0 18px; padding:16px 18px">
+        <div class="row" style="justify-content:space-between; margin-bottom:6px">
+          <h3 style="margin:0; font-size:20px">Scout RNG</h3>
+          <span class="muted" id="scoutInfo">—</span>
+        </div>
+        <p class="muted" style="margin:0 0 10px; font-size:13.5px">
+          Lands in their roll game the next time it's open (straight away if it is). Scout RNG players
+          only live in the roll game - to give a real card, use the mail above.</p>
+        <div class="row" style="align-items:flex-end">
+          <label class="field" style="flex:1 1 260px">Player
+            <input list="scoutList" id="scoutCard" placeholder="none">
+          </label>
+          <label class="field">How many <input type="number" id="scoutCount" value="1" min="1" max="99" style="width:90px"></label>
+          <label class="field">Fragments <input type="number" id="scoutFrags" value="0" min="0" style="width:120px"></label>
+          <label class="field">Potion
+            <select id="scoutPotion"><option value="">none</option><option value="lucky">Lucky (2x)</option>
+              <option value="super">Super Lucky (5x)</option><option value="mega">Mega Lucky (10x)</option>
+              <option value="speed">Speed</option><option value="miracle">Miracle (100x, 5 rolls)</option></select>
+          </label>
+          <label class="field">× <input type="number" id="scoutPotionN" value="1" min="1" max="999" style="width:80px"></label>
+          <button class="btn btn-sm btn-primary" id="scoutSend">Give</button>
+        </div>
+        <p class="muted" id="scoutGiven" style="margin:10px 0 0; font-size:13px"></p>
+      </div>
+
+      <label class="field">Save file (JSON)
+        <textarea id="saveText" spellcheck="false"></textarea>
+      </label>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" id="saveJson">Save changes</button>
+        <button class="btn btn-sm" id="reload">Reload from cloud</button>
+        <button class="btn btn-sm btn-danger" id="wipe">Wipe save</button>
+        <span class="muted" id="editHint"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Reports <span class="muted" id="reportCount" style="text-transform:none; letter-spacing:0; font-weight:500"></span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-sm" id="reportsRefresh">Refresh</button>
+        <label class="muted" style="display:flex; align-items:center; gap:7px">
+          <input type="checkbox" id="showDone"> show handled
+        </label>
+      </div>
+      <div id="reportList" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Chat</h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn btn-sm" id="chatRefresh">Refresh</button>
+        <span class="muted">Delete anything that shouldn't be there. Muting is on the player below.</span>
+      </div>
+      <div id="chatAdmin" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Poll <span class="muted" id="pollState" style="text-transform:none; letter-spacing:0; font-weight:500"></span></h2>
+      <p class="muted" style="margin:0 0 16px">Ask the players something. Everyone who answers gets the reward
+        paid straight into their save. One answer each.</p>
+
+      <label class="field" style="margin-bottom:12px">Question
+        <input type="text" id="pollQuestion" placeholder="Which card should I add next?">
+      </label>
+      <div class="grid" style="display:grid; gap:10px; grid-template-columns:repeat(2, minmax(0,1fr)); margin-bottom:12px">
+        <label class="field">Answer 1 <input type="text" id="pollOpt0" placeholder="Haaland"></label>
+        <label class="field">Answer 2 <input type="text" id="pollOpt1" placeholder="Yamal"></label>
+        <label class="field">Answer 3 <input type="text" id="pollOpt2" placeholder="(optional)"></label>
+        <label class="field">Answer 4 <input type="text" id="pollOpt3" placeholder="(optional)"></label>
+      </div>
+      <div class="row" style="align-items:flex-end; margin-bottom:14px">
+        <label class="field">Reward <input type="number" id="pollReward" value="300" style="width:120px"></label>
+        <label class="field">Paid in
+          <select id="pollCurrency">
+            <option value="sp">Star Points</option>
+            <option value="coins">Coins</option>
+          </select>
+        </label>
+        <button class="btn btn-primary btn-sm" id="pollPost">Post poll</button>
+        <button class="btn btn-sm" id="pollClose" hidden>Close poll</button>
+        <button class="btn btn-sm" id="pollRefresh">Refresh results</button>
+      </div>
+
+      <div id="pollResults" class="muted">No poll posted yet.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Scout RNG gift to everyone</h2>
+      <p class="muted" style="margin:0 0 10px">Every Scout RNG player gets it once - signed in or not - the next time
+        the site is open. The newest 20 are kept.</p>
+      <div class="row" style="align-items:flex-end">
+        <label class="field" style="flex:1 1 260px">Player
+          <input list="scoutList" id="allScoutCard" placeholder="none">
+        </label>
+        <label class="field">How many <input type="number" id="allScoutCount" value="1" min="1" max="99" style="width:90px"></label>
+        <label class="field">Fragments <input type="number" id="allScoutFrags" value="0" min="0" style="width:120px"></label>
+        <label class="field">Potion
+          <select id="allScoutPotion"><option value="">none</option><option value="lucky">Lucky (2x)</option>
+            <option value="super">Super Lucky (5x)</option><option value="mega">Mega Lucky (10x)</option>
+            <option value="speed">Speed</option><option value="miracle">Miracle (100x, 5 rolls)</option></select>
+        </label>
+        <label class="field">× <input type="number" id="allScoutPotionN" value="1" min="1" max="999" style="width:80px"></label>
+        <button class="btn btn-sm btn-primary" id="allScoutSend">Give everyone</button>
+        <button class="btn btn-sm btn-danger" id="allScoutClear">Remove all</button>
+      </div>
+      <ul class="muted" id="allScoutList" style="margin:12px 0 0; padding-left:18px; line-height:1.8"></ul>
+    </div>
+
+    <div class="panel">
+      <h2>Mail to everyone</h2>
+      <p class="muted" style="margin:0 0 12px">Goes to every player's inbox the next time they
+         open the game — including new players, once. Good for telling people about the game.</p>
+      <div class="row" style="align-items:flex-end; margin-bottom:10px">
+        <label class="field" style="flex:1 1 280px">Subject
+          <input type="text" id="allSubject" placeholder="Ranked is live" maxlength="60">
+        </label>
+        <label class="field">From <input type="text" id="allFrom" value="HUBI" maxlength="24" style="width:150px"></label>
+      </div>
+      <label class="field">Message
+        <textarea id="allBody" style="min-height:100px"></textarea>
+      </label>
+      <div class="row" style="align-items:flex-end; margin-top:10px">
+        <label class="field">Coins <input type="number" id="allCoins" value="0" style="width:120px"></label>
+        <label class="field">Star points <input type="number" id="allSp" value="0" style="width:130px"></label>
+        <label class="field">Gems <input type="number" id="allGems" value="0" style="width:110px"></label>
+        <button class="btn btn-primary btn-sm" id="allSend">Send to everyone</button>
+        <button class="btn btn-sm btn-danger" id="allClear">Clear the list</button>
+      </div>
+      <div id="allList" style="margin-top:20px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Codes</h2>
+      <p class="muted" style="margin:0 0 12px">Make a code, say it in a video or post it anywhere. Players type it
+         on the PASS screen (CODES) - each account can use a code once, and it stops at the number of uses
+         you set. Letters and numbers only.</p>
+      <div class="row" style="align-items:flex-end">
+        <label class="field">Code <input type="text" id="codeName" placeholder="KICKOFF" maxlength="20" style="width:170px; text-transform:uppercase"></label>
+        <label class="field">Gems <input type="number" id="codeGems" value="50" style="width:100px"></label>
+        <label class="field">Coins <input type="number" id="codeCoins" value="0" style="width:110px"></label>
+        <label class="field">Packs <input type="number" id="codePacks" value="0" style="width:90px"></label>
+        <label class="field">Uses <input type="number" id="codeMax" value="100" style="width:100px"></label>
+        <label class="field">Days <input type="number" id="codeDays" value="7" style="width:90px"></label>
+        <button class="btn btn-primary btn-sm" id="codeMake">Make code</button>
+      </div>
+      <div id="codeList" style="margin-top:18px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Patch notes</h2>
+      <div class="row" style="align-items:flex-end; margin-bottom:12px">
+        <label class="field">Date <input type="text" id="noteDate" style="width:150px"></label>
+        <label class="field" style="flex:1 1 240px">Title <input type="text" id="noteTitle" placeholder="What changed"></label>
+      </div>
+      <label class="field">Body
+        <textarea id="noteBody" style="min-height:120px"></textarea>
+      </label>
+      <div class="row" style="margin-top:14px">
+        <button class="btn btn-primary btn-sm" id="addNote">Post note</button>
+        <span class="muted">Newest first. Players see these on the home page.</span>
+      </div>
+      <div id="noteList" style="margin-top:22px"></div>
+    </div>
+
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="admin.js?v=2026-11-06h"></script>
+</body>
+</html>
