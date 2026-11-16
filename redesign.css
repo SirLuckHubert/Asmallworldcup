@@ -1,0 +1,85 @@
+/* 16 Nov redesign. Loads after style.css and overrides it: flat colours from the game,
+   a plain readable font, pixel font only for headings, square corners, no glows or gradients. */
+:root{
+  --rd-bg:#161a24; --rd-panel:#1d2230; --rd-line:#2b3040; --rd-text:#e9e6dc; --rd-dim:#b9b6ac;
+  --rd-gold:#f2c230; --rd-red:#e5483a;
+  --rd-sys:-apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --rd-px:"Silkscreen", monospace;
+}
+
+html, body{background:var(--rd-bg) !important; color:var(--rd-text) !important}
+body, body *{font-family:var(--rd-sys) !important; font-style:normal !important; letter-spacing:normal !important;
+  text-shadow:none !important}
+body{font-size:17px; line-height:1.6}
+
+/* pixel font only here */
+h1, h2, .brand, .brand *{font-family:var(--rd-px) !important; font-weight:700 !important; text-transform:none !important}
+h1{font-size:clamp(34px, 5.5vw, 62px) !important; line-height:1 !important; margin:34px 0 14px !important}
+h2{font-size:26px !important; line-height:1.1 !important; margin:0 0 18px !important}
+h3{font-size:18px !important; font-weight:700 !important; text-transform:none !important}
+
+/* flat everything: no gradients, glows, blur, round corners or fade-ins */
+section, .section, .section-sm, .online, .scout, .cards-sec, .play-wrap, main, .nav, .stage, .state-pane,
+.card, .board-card, .sc-box, .sc-stage, .poll, .report, .chat-card, .launch, .cover, .stage-bar, .podium,
+.sc-index, .sc-pulls, .tiers-card, .my-rank{
+  background-image:none !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important}
+section, .section, .section-sm, .online, .scout, .cards-sec, .play-wrap, main{background-color:transparent !important}
+*, *::before, *::after{box-shadow:none !important; border-radius:0 !important}
+#avatar{border-radius:50% !important}
+.reveal{opacity:1 !important; transform:none !important; transition:none !important}
+.glow, .sky, .beam, .ticker{display:none !important}
+.hl, .hl.gold{background:none !important; color:inherit !important; -webkit-text-fill-color:currentColor !important}
+.eyebrow, .kicker{display:none !important}
+
+/* panels */
+.card, .board-card, .sc-box, .sc-stage, .poll, .report, .chat-card, .stage-bar, .state-pane, .cover,
+.sc-index, .sc-pulls{background-color:var(--rd-panel) !important; border:2px solid #000 !important}
+.muted{color:var(--rd-dim) !important}
+a{color:inherit}
+
+/* nav */
+.nav{background-color:var(--rd-bg) !important; border-bottom:1px solid var(--rd-line) !important}
+.nav-links a{opacity:.75; text-decoration:none; text-transform:none !important; font-weight:400 !important}
+.nav-links a:hover{opacity:1; color:var(--rd-text) !important}
+.brand{font-size:17px !important; color:var(--rd-text) !important; text-decoration:none}
+
+/* buttons: square, black edge, a hard 3px shadow that presses in */
+.btn{background:var(--rd-panel) !important; color:var(--rd-text) !important; border:2px solid #000 !important;
+  box-shadow:3px 3px 0 #000 !important; text-transform:none !important; font-weight:700 !important;
+  font-size:15px !important; padding:11px 16px 10px !important; transform:none !important; transition:none !important}
+.btn:active{transform:translate(3px, 3px) !important; box-shadow:none !important}
+.btn-sm{font-size:14px !important; padding:7px 11px 6px !important}
+.btn-lg, .btn-xl{font-size:16px !important; padding:13px 20px 12px !important}
+.btn-primary, .btn-gold{background:var(--rd-gold) !important; color:#111 !important}
+.btn-google{background:#fff !important; color:#1f1f1f !important}
+.btn-danger{background:var(--rd-red) !important; color:#fff !important}
+.btn[disabled]{opacity:.45}
+.btn.rd-link{background:none !important; border:0 !important; box-shadow:none !important; text-decoration:underline;
+  font-weight:400 !important; padding-left:8px !important; cursor:pointer}
+input, select{background:var(--rd-bg) !important; color:var(--rd-text) !important; border:2px solid #000 !important}
+
+/* layout pieces that are new in this version */
+.rd-hero{padding:14px 0 46px}
+.rd-hero p{max-width:52ch; margin:0 0 22px; color:var(--rd-dim)}
+.rd-acts{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+.rd-shot{display:block; width:100%; height:auto; border:3px solid #000; image-rendering:pixelated}
+.rd-sec{border-top:1px solid var(--rd-line); padding:42px 0 !important}
+.rd-intro{max-width:62ch; margin:-6px 0 22px}
+.rd-list{margin:0 0 18px}
+.rd-list > div{display:grid; grid-template-columns:220px 1fr; gap:4px 28px; padding:13px 0; border-bottom:1px solid var(--rd-line)}
+.rd-list b{font-weight:700}
+.rd-list span{color:var(--rd-dim)}
+.rd-free{color:var(--rd-gold); font-size:14px; font-weight:400; margin-left:6px}
+.rd-pair{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:22px}
+.rd-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px}
+.rd-steps{margin:0 0 14px; padding-left:22px; max-width:64ch}
+.rd-steps li{padding:6px 0; color:var(--rd-dim)}
+.rd-steps b{color:var(--rd-text)}
+.rd-cards{display:flex; gap:12px; margin:6px 0 24px; overflow-x:auto}
+.rd-cards img{width:170px; height:auto; flex:0 0 auto}
+
+@media (max-width:760px){
+  .rd-list > div{grid-template-columns:1fr}
+  .rd-pair, .rd-grid{grid-template-columns:1fr}
+  .rd-cards img{width:130px}
+}
